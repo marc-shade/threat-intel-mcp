@@ -1,0 +1,1 @@
+{"timestamp": "2025-11-29T11:36:38.373970", "total": 1464, "recent_count": 1, "vulnerabilities": [{"cve_id": "CVE-2021-26829", "vendor": "OpenPLC", "product": "ScadaBR", "name": "OpenPLC ScadaBR Cross-site Scripting Vulnerability", "description": "OpenPLC ScadaBR contains a cross-site scripting vulnerability via system_settings.shtm.", "date_added": "2025-11-28"}]}

@@ -1,0 +1,22 @@
+[Unit]
+Description=Threat Intelligence Data Fetcher
+Documentation=https://github.com/marc/agentic-system
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=marc
+Group=marc
+Environment="PATH=/mnt/agentic-system/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/mnt/agentic-system/mcp-servers/threat-intel-mcp/src"
+WorkingDirectory=/mnt/agentic-system/mcp-servers/threat-intel-mcp
+ExecStart=/mnt/agentic-system/.venv/bin/python3 /mnt/agentic-system/mcp-servers/threat-intel-mcp/src/threat_intel_mcp/data_fetcher.py
+Restart=always
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=threat-intel-fetcher
+
+[Install]
+WantedBy=multi-user.target
