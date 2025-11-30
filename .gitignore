@@ -42,6 +42,13 @@ htmlcov/
 *.sqlite
 *.log
 
+# Runtime data (cache, logs, data)
+data/
+cache/
+logs/
+*_cache.json
+*.cache
+
 # Node (if TypeScript)
 node_modules/
 

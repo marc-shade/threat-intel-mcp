@@ -12,7 +12,7 @@ Real-time threat intelligence aggregation for the AGI agentic cluster.
 ## Installation
 
 ```bash
-cd /mnt/agentic-system/mcp-servers/threat-intel-mcp
+cd ${AGENTIC_SYSTEM_PATH:-/opt/agentic}/mcp-servers/threat-intel-mcp
 pip install -e .
 ```
 
@@ -24,8 +24,8 @@ Add to `~/.claude.json`:
 {
   "mcpServers": {
     "threat-intel": {
-      "command": "/mnt/agentic-system/.venv/bin/python3",
-      "args": ["/mnt/agentic-system/mcp-servers/threat-intel-mcp/src/threat_intel_mcp/server.py"]
+      "command": "${AGENTIC_SYSTEM_PATH:-/opt/agentic}/.venv/bin/python3",
+      "args": ["${AGENTIC_SYSTEM_PATH:-/opt/agentic}/mcp-servers/threat-intel-mcp/src/threat_intel_mcp/server.py"]
     }
   }
 }
