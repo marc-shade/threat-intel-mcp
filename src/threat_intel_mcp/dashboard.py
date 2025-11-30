@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Data directory
-DATA_DIR = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}"), "mcp-servers/threat-intel-mcp/data"))
+DATA_DIR = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "/mnt/agentic-system"), "mcp-servers/threat-intel-mcp/data"))
 CACHE_DIR = DATA_DIR / "cache"
 
 # Threat feed URLs
@@ -554,7 +554,7 @@ def api_network():
         "threat_matches": 0
     }
 
-    history_file = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}"), "mcp-servers/network-scanner-mcp/data/device_history.json"))
+    history_file = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "/mnt/agentic-system"), "mcp-servers/network-scanner-mcp/data/device_history.json"))
     if history_file.exists():
         try:
             with open(history_file) as f:
