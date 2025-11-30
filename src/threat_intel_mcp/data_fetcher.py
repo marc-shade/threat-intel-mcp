@@ -13,7 +13,7 @@ import aiohttp
 import os
 
 # Paths
-DATA_DIR = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "/mnt/agentic-system"), "mcp-servers/threat-intel-mcp/data"))
+DATA_DIR = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}"), "mcp-servers/threat-intel-mcp/data"))
 CACHE_DIR = DATA_DIR / "cache"
 
 THREAT_FEEDS = {
