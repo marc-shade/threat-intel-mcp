@@ -4,36 +4,30 @@ Threat Intelligence Dashboard
 Real-time web dashboard for threat monitoring.
 """
 
-import asyncio
 import json
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
-import threading
-import aiohttp
+from typing import Any
 
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 from flask_cors import CORS
-import os
+
+from .config import (
+    THREAT_FEEDS,
+    threat_cache,
+    validate_ip,
+    validate_hash,
+    get_enabled_feeds,
+    get_timestamp,
+    DATA_DIR,
+    CACHE_DIR,
+)
 
 app = Flask(__name__)
 CORS(app)
 
-# Data directory
-DATA_DIR = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}"), "mcp-servers/threat-intel-mcp/data"))
-CACHE_DIR = DATA_DIR / "cache"
-
-# Threat feed URLs
-THREAT_FEEDS = {
-    "feodo_tracker": "https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt",
-    "urlhaus_recent": "https://urlhaus.abuse.ch/downloads/text_recent/",
-    "sslbl_botnet": "https://sslbl.abuse.ch/blacklist/sslipblacklist.txt",
-    "cisa_kev": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
-    "tor_exit_nodes": "https://check.torproject.org/torbulkexitlist",
-}
-
-# Cache
-feed_cache = {}
-
+# Dashboard HTML template
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -288,6 +282,47 @@ DASHBOARD_HTML = """
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+
+        .search-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .search-box button {
+            padding: 0.5rem 1rem;
+            background: var(--accent-purple);
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .result-box {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .threat-clean { color: var(--accent-green); }
+        .threat-low { color: var(--accent-blue); }
+        .threat-medium { color: var(--accent-yellow); }
+        .threat-high { color: var(--accent-red); }
+        .threat-critical { color: #ff0000; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -305,6 +340,34 @@ DASHBOARD_HTML = """
 
     <div class="container">
         <div class="grid">
+            <!-- IP Check Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>IP Reputation Check</h2>
+                </div>
+                <div class="card-body">
+                    <div class="search-box">
+                        <input type="text" id="ipInput" placeholder="Enter IP address...">
+                        <button onclick="checkIP()">Check</button>
+                    </div>
+                    <div class="result-box" id="ipResult">Enter an IP to check reputation</div>
+                </div>
+            </div>
+
+            <!-- Hash Check Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Hash Reputation Check</h2>
+                </div>
+                <div class="card-body">
+                    <div class="search-box">
+                        <input type="text" id="hashInput" placeholder="Enter MD5/SHA1/SHA256...">
+                        <button onclick="checkHash()">Check</button>
+                    </div>
+                    <div class="result-box" id="hashResult">Enter a hash to check reputation</div>
+                </div>
+            </div>
+
             <!-- Summary Stats -->
             <div class="card">
                 <div class="card-header">
@@ -341,6 +404,28 @@ DASHBOARD_HTML = """
                     <ul class="feed-list" id="feedList">
                         <li class="loading">Loading feeds</li>
                     </ul>
+                </div>
+            </div>
+
+            <!-- Cache Stats -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cache Statistics</h2>
+                </div>
+                <div class="card-body">
+                    <div class="stat-grid">
+                        <div class="stat">
+                            <div class="stat-value" id="cacheSize">-</div>
+                            <div class="stat-label">Cached Items</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="cacheMaxSize">-</div>
+                            <div class="stat-label">Max Size</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; text-align: center;">
+                        <button class="refresh-btn" style="background: var(--accent-red);" onclick="clearCache()">Clear Cache</button>
+                    </div>
                 </div>
             </div>
 
@@ -410,6 +495,60 @@ DASHBOARD_HTML = """
             }
         }
 
+        async function checkIP() {
+            const ip = document.getElementById('ipInput').value.trim();
+            const resultBox = document.getElementById('ipResult');
+            if (!ip) {
+                resultBox.textContent = 'Please enter an IP address';
+                return;
+            }
+            resultBox.textContent = 'Checking...';
+            const data = await fetchData(`/api/check-ip/${ip}`);
+            if (data) {
+                const level = data.threat_level || 'unknown';
+                resultBox.innerHTML = `
+<span class="threat-${level}">Threat Level: ${level.toUpperCase()}</span>
+IP: ${data.ip}
+Sources Checked: ${data.sources_checked || 0}
+Threats Found: ${data.threats_found || 0}
+${data.details ? 'Details: ' + JSON.stringify(data.details, null, 2) : ''}`;
+            } else {
+                resultBox.textContent = 'Error checking IP';
+            }
+        }
+
+        async function checkHash() {
+            const hash = document.getElementById('hashInput').value.trim();
+            const resultBox = document.getElementById('hashResult');
+            if (!hash) {
+                resultBox.textContent = 'Please enter a hash';
+                return;
+            }
+            resultBox.textContent = 'Checking...';
+            const data = await fetchData(`/api/check-hash/${hash}`);
+            if (data) {
+                if (data.success === false) {
+                    resultBox.textContent = `Error: ${data.error}`;
+                } else {
+                    resultBox.innerHTML = `
+Hash Type: ${data.hash_type || 'unknown'}
+Hash: ${data.hash}
+Threats Found: ${data.threats_found || 0}
+${data.malware_names?.length ? 'Malware: ' + data.malware_names.join(', ') : ''}`;
+                }
+            } else {
+                resultBox.textContent = 'Error checking hash';
+            }
+        }
+
+        async function clearCache() {
+            const data = await fetchData('/api/cache/clear');
+            if (data && data.success) {
+                alert('Cache cleared successfully');
+                updateCacheStats();
+            }
+        }
+
         async function updateSummary() {
             const data = await fetchData('/api/summary');
             if (!data) return;
@@ -421,16 +560,18 @@ DASHBOARD_HTML = """
             document.getElementById('recentCves').textContent =
                 data.totals?.recent_cves || '0';
             document.getElementById('feedsActive').textContent =
-                Object.keys(data.feeds || {}).length;
+                data.feeds_count || Object.keys(data.feeds || {}).length;
 
             // Update feed list
             const feedList = document.getElementById('feedList');
-            feedList.innerHTML = Object.entries(data.feeds || {}).map(([name, info]) => `
-                <li class="feed-item">
-                    <span class="feed-name">${name.replace(/_/g, ' ')}</span>
-                    <span class="feed-count">${info.count?.toLocaleString() || 'N/A'}</span>
-                </li>
-            `).join('');
+            if (data.feeds) {
+                feedList.innerHTML = Object.entries(data.feeds).map(([name, info]) => `
+                    <li class="feed-item">
+                        <span class="feed-name">${name.replace(/_/g, ' ')}</span>
+                        <span class="feed-count">${info.enabled ? 'Active' : 'Disabled'}</span>
+                    </li>
+                `).join('');
+            }
 
             // Update alerts
             if (data.alerts && data.alerts.length > 0) {
@@ -471,6 +612,14 @@ DASHBOARD_HTML = """
                 data.threat_matches || '0';
         }
 
+        async function updateCacheStats() {
+            const data = await fetchData('/api/cache/stats');
+            if (!data) return;
+
+            document.getElementById('cacheSize').textContent = data.size || 0;
+            document.getElementById('cacheMaxSize').textContent = data.max_size || 0;
+        }
+
         function updateTimestamp() {
             document.getElementById('lastUpdate').textContent =
                 `Last updated: ${new Date().toLocaleTimeString()}`;
@@ -480,7 +629,8 @@ DASHBOARD_HTML = """
             await Promise.all([
                 updateSummary(),
                 updateKEV(),
-                updateNetworkStatus()
+                updateNetworkStatus(),
+                updateCacheStats()
             ]);
             updateTimestamp();
         }
@@ -496,22 +646,34 @@ DASHBOARD_HTML = """
 """
 
 
+def main():
+    """Entry point for the dashboard."""
+    run_dashboard()
+
+
 @app.route('/')
 def index():
+    """Serve the main dashboard page."""
     return render_template_string(DASHBOARD_HTML)
 
 
 @app.route('/api/summary')
-def api_summary():
+def api_summary() -> Any:
     """Get threat summary data."""
+    enabled_feeds = get_enabled_feeds()
+
     summary = {
+        "timestamp": get_timestamp(),
         "totals": {
             "malicious_ips": 0,
             "malicious_urls": 0,
             "recent_cves": 0
         },
-        "feeds": {},
-        "alerts": []
+        "feeds": {name: {"enabled": feed.enabled, "type": feed.feed_type.value}
+                 for name, feed in THREAT_FEEDS.items()},
+        "feeds_count": len(enabled_feeds),
+        "alerts": [],
+        "cache_stats": threat_cache.stats()
     }
 
     # Check cache for feed data
@@ -523,30 +685,42 @@ def api_summary():
                 if cached.get("timestamp"):
                     cache_time = datetime.fromisoformat(cached["timestamp"])
                     if datetime.now() - cache_time < timedelta(minutes=30):
-                        return jsonify(cached["data"])
-        except:
+                        # Merge cached totals
+                        summary["totals"] = cached.get("totals", summary["totals"])
+        except Exception:
             pass
 
     return jsonify(summary)
 
 
 @app.route('/api/kev')
-def api_kev():
+def api_kev() -> Any:
     """Get CISA KEV data."""
     cache_file = CACHE_DIR / "kev_cache.json"
     if cache_file.exists():
         try:
             with open(cache_file) as f:
-                return jsonify(json.load(f))
-        except:
+                data = json.load(f)
+                # Filter to recent CVEs (last 30 days)
+                cutoff = datetime.now() - timedelta(days=30)
+                recent_vulns = []
+                for vuln in data.get("vulnerabilities", []):
+                    if vuln.get("date_added"):
+                        try:
+                            added = datetime.fromisoformat(vuln["date_added"])
+                            if added >= cutoff:
+                                recent_vulns.append(vuln)
+                        except ValueError:
+                            pass
+                return jsonify({"vulnerabilities": recent_vulns})
+        except Exception:
             pass
     return jsonify({"vulnerabilities": []})
 
 
 @app.route('/api/network')
-def api_network():
+def api_network() -> Any:
     """Get network status."""
-    # Read from network scanner data
     network_data = {
         "total_devices": 0,
         "cluster_nodes_online": 0,
@@ -554,36 +728,152 @@ def api_network():
         "threat_matches": 0
     }
 
-    history_file = Path(os.path.join(os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}"), "mcp-servers/network-scanner-mcp/data/device_history.json"))
+    # Read from network scanner data
+    agentic_path = os.environ.get("AGENTIC_SYSTEM_PATH", "${AGENTIC_SYSTEM_PATH:-/opt/agentic}")
+    history_file = Path(agentic_path) / "mcp-servers/network-scanner-mcp/data/device_history.json"
+    known_file = Path(agentic_path) / "mcp-servers/network-scanner-mcp/data/known_devices.json"
+
     if history_file.exists():
         try:
             with open(history_file) as f:
                 history = json.load(f)
                 network_data["total_devices"] = len(history.get("devices", {}))
-        except:
+        except Exception:
+            pass
+
+    if known_file.exists():
+        try:
+            with open(known_file) as f:
+                known = json.load(f)
+                # Count cluster nodes (infrastructure type)
+                cluster_count = sum(1 for d in known.get("devices", {}).values()
+                                   if d.get("type") == "infrastructure")
+                network_data["cluster_nodes_online"] = cluster_count
+                # Count unknown (total - known)
+                known_count = len(known.get("devices", {}))
+                network_data["unknown_devices"] = max(0, network_data["total_devices"] - known_count)
+        except Exception:
             pass
 
     return jsonify(network_data)
 
 
 @app.route('/api/check-ip/<ip>')
-def api_check_ip(ip):
-    """Check IP reputation."""
-    # This would call the threat intel MCP tools
-    return jsonify({
+def api_check_ip(ip: str) -> Any:
+    """Check IP reputation via REST API."""
+    is_valid, error = validate_ip(ip)
+    if not is_valid:
+        return jsonify({
+            "success": False,
+            "error": error,
+            "ip": ip
+        })
+
+    # Check cache first
+    cached = threat_cache.get(f"ip:{ip}")
+    if cached:
+        return jsonify(cached)
+
+    # Return basic info - full check requires async MCP tools
+    result = {
+        "success": True,
         "ip": ip,
-        "status": "not_implemented",
-        "message": "Use the MCP tools directly for IP checks"
+        "threat_level": "unknown",
+        "sources_checked": 0,
+        "threats_found": 0,
+        "message": "For full reputation check, use the MCP tools directly",
+        "timestamp": get_timestamp()
+    }
+
+    return jsonify(result)
+
+
+@app.route('/api/check-hash/<file_hash>')
+def api_check_hash(file_hash: str) -> Any:
+    """Check hash reputation via REST API."""
+    is_valid, hash_type, error = validate_hash(file_hash)
+    if not is_valid:
+        return jsonify({
+            "success": False,
+            "error": error,
+            "hash": file_hash
+        })
+
+    # Check cache first
+    cached = threat_cache.get(f"hash:{file_hash.lower()}")
+    if cached:
+        return jsonify(cached)
+
+    # Return basic info
+    result = {
+        "success": True,
+        "hash": file_hash.lower(),
+        "hash_type": hash_type,
+        "threats_found": 0,
+        "malware_names": [],
+        "message": "For full reputation check, use the MCP tools directly",
+        "timestamp": get_timestamp()
+    }
+
+    return jsonify(result)
+
+
+@app.route('/api/cache/stats')
+def api_cache_stats() -> Any:
+    """Get cache statistics."""
+    return jsonify(threat_cache.stats())
+
+
+@app.route('/api/cache/clear', methods=['GET', 'POST'])
+def api_cache_clear() -> Any:
+    """Clear the threat cache."""
+    threat_cache.clear()
+    return jsonify({
+        "success": True,
+        "message": "Cache cleared",
+        "timestamp": get_timestamp()
     })
 
 
-def run_dashboard(host='0.0.0.0', port=8889):
+@app.route('/api/feeds')
+def api_feeds() -> Any:
+    """List all configured threat feeds."""
+    feeds = {}
+    for name, feed in THREAT_FEEDS.items():
+        feeds[name] = {
+            "name": feed.name,
+            "description": feed.description,
+            "url": feed.url,
+            "feed_type": feed.feed_type.value,
+            "enabled": feed.enabled,
+            "requires_api_key": feed.requires_api_key
+        }
+    return jsonify({
+        "success": True,
+        "feeds": feeds,
+        "total_feeds": len(feeds),
+        "enabled_feeds": len(get_enabled_feeds())
+    })
+
+
+@app.route('/api/health')
+def api_health() -> Any:
+    """Health check endpoint."""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": get_timestamp(),
+        "cache_size": threat_cache.stats()["size"],
+        "feeds_configured": len(THREAT_FEEDS)
+    })
+
+
+def run_dashboard(host: str = '0.0.0.0', port: int = 8889) -> None:
     """Run the Flask dashboard."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Starting Threat Intelligence Dashboard on http://{host}:{port}")
     app.run(host=host, port=port, debug=False, threaded=True)
 
 
 if __name__ == "__main__":
-    print("Starting Threat Intelligence Dashboard on http://localhost:8889")
-    run_dashboard()
+    main()
