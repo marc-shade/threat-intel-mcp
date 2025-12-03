@@ -4,35 +4,49 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threat-intel-mcp"
-version = "0.1.0"
-description = "Threat Intelligence Dashboard MCP Server - aggregates threat feeds, IOCs, and security intelligence"
+version = "0.2.0"
+description = "Threat Intelligence MCP Server - aggregates threat feeds, IOCs, and security intelligence from multiple sources"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Marc", email = "marc@example.com" }
+    { name = "AGI System", email = "agi@agentic-system.local" }
 ]
+keywords = ["mcp", "threat-intelligence", "security", "ioc", "cisa-kev"]
+
 dependencies = [
-    "mcp>=1.0.0",
     "fastmcp>=0.1.0",
     "aiohttp>=3.9.0",
-    "aiofiles>=23.0.0",
-    "feedparser>=6.0.0",
-    "flask>=3.0.0",
-    "flask-cors>=4.0.0",
-    "redis>=5.0.0",
-    "python-dateutil>=2.8.0",
-    "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
+dashboard = [
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "aioresponses>=0.7.0",
 ]
 
 [project.scripts]
 threat-intel-mcp = "threat_intel_mcp.server:main"
+threat-intel-dashboard = "threat_intel_mcp.dashboard:main"
+
+[project.urls]
+Homepage = "https://github.com/agentic-system/threat-intel-mcp"
+Repository = "https://github.com/agentic-system/threat-intel-mcp"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/threat_intel_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/threat_intel_mcp"]
+omit = ["*/tests/*"]
