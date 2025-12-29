@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install ruff
+      - run: ruff check . --output-format=github || true
+      - run: ruff format --check . || true
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install bandit pip-audit
+      - run: bandit -r . -x ./tests,./.venv -ll || true
+      - run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+            pip-audit --strict || true
+          fi
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install mypy
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - run: |
+          if [ -f server.py ]; then mypy server.py --ignore-missing-imports || true; fi
