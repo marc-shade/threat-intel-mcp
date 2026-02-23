@@ -7,10 +7,11 @@ Real-time global intelligence across 17 domains:
 financial markets, economic indicators, earthquakes, wildfires,
 conflict, military flights, infrastructure, and more.
 
-Phase 1: Markets, Economic, Seismology, Wildfire (12 tools).
-Phase 2: Conflict, Military, Infrastructure, Maritime, Climate (+10 = 22 tools).
-Phase 3: News, Intelligence, Prediction, Displacement, Aviation, Cyber (+14 = 36 tools).
-Phase 4: Reports — daily brief, country dossier, threat landscape (+3 = 39 tools).
+Phase 1: Markets, Economic, Seismology, Wildfire (14 tools).
+Phase 2: Conflict, Military, Infrastructure, Maritime, Climate (+10 = 24 tools).
+Phase 3: News, Intelligence, Prediction, Displacement, Aviation, Cyber (+9 = 33 tools).
+Phase 4: Reports — daily brief, country dossier, threat landscape (+3 = 36 tools).
+Phase 5: Analysis — focal points, signal summary, temporal anomalies, CII v2 (+3 = 39 tools).
 """
 
 import asyncio
@@ -333,7 +334,7 @@ TOOLS: list[Tool] = [
             },
         },
     ),
-    # --- Intelligence (4 tools) ---
+    # --- Intelligence (7 tools) ---
     Tool(
         name="intel_country_brief",
         description="Generate a country intelligence brief using Ollama LLM + World Bank + ACLED data. Falls back to data-only if LLM unavailable.",
@@ -356,7 +357,7 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="intel_instability_index",
-        description="Compute Country Instability Index (0-100) from conflict, economic, humanitarian, infrastructure, and military signals.",
+        description="Compute Country Instability Index v2 (0-100) from 4 weighted domains: unrest, conflict, security, information. Applies country-specific multipliers and UCDP floors.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -375,6 +376,26 @@ TOOLS: list[Tool] = [
                 "radius_deg": {"type": "number", "description": "Radius in degrees (default 5.0)", "default": 5.0},
             },
         },
+    ),
+    Tool(
+        name="intel_focal_points",
+        description="Detect focal points where multiple intelligence signals converge on the same entity (country, organization, leader). Cross-references news, military, protests, and infrastructure signals.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="intel_signal_summary",
+        description="Aggregate all intelligence signals by country with convergence scoring. Combines conflict, displacement, earthquakes, fires, outages, military, and protests.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "Country name filter (optional)"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_temporal_anomalies",
+        description="Detect temporal anomalies — activity levels that deviate from historical baselines using Welford's algorithm. Reports z-score deviations like 'Military flights 3.2x normal for Thursday'.",
+        inputSchema={"type": "object", "properties": {}},
     ),
     # --- Reports (3 tools) ---
     Tool(
@@ -554,6 +575,12 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 lon=arguments.get("lon"),
                 radius_deg=arguments.get("radius_deg", 5.0),
             )
+        case "intel_focal_points":
+            return await intelligence.fetch_focal_points(fetcher)
+        case "intel_signal_summary":
+            return await intelligence.fetch_signal_summary(fetcher, country=arguments.get("country"))
+        case "intel_temporal_anomalies":
+            return await intelligence.fetch_temporal_anomalies(fetcher)
 
         # Reports
         case "intel_daily_brief":

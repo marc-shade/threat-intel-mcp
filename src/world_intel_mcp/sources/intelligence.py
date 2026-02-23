@@ -1,8 +1,9 @@
-"""Country intelligence, risk scoring, and signal convergence sources.
+"""Country intelligence, risk scoring, signal convergence, and analysis sources.
 
 Provides higher-level analytical functions that combine data from multiple
-APIs (ACLED, World Bank, USGS, Ollama) into country briefs, risk scores,
-instability indices, and geographic signal convergence assessments.
+APIs (ACLED, World Bank, USGS, Ollama, Cloudflare, OpenSky, NASA) into
+country briefs, risk scores, instability indices, geographic signal
+convergence, focal point detection, signal summaries, and temporal anomalies.
 """
 
 import asyncio
@@ -13,8 +14,26 @@ from datetime import datetime, timezone, timedelta
 import httpx
 
 from ..fetcher import Fetcher
+from ..analysis.focal_points import detect_focal_points
+from ..analysis.signals import aggregate_country_signals
+from ..analysis.temporal import TemporalBaseline
+from ..analysis.instability import (
+    compute_cii,
+    score_unrest,
+    score_conflict_v2,
+    score_security,
+    score_information,
+)
+from ..config.countries import (
+    TIER1_COUNTRIES,
+    get_event_multiplier,
+    match_country_by_name,
+)
 
 logger = logging.getLogger("world-intel-mcp.sources.intelligence")
+
+# Shared temporal baseline instance
+_temporal = TemporalBaseline()
 
 
 # ---------------------------------------------------------------------------
@@ -23,9 +42,7 @@ logger = logging.getLogger("world-intel-mcp.sources.intelligence")
 
 _ACLED_URL = "https://api.acleddata.com/acled/read"
 _WB_BASE = "https://api.worldbank.org/v2/country"
-_HDX_SEARCH_URL = "https://data.humdata.org/api/3/action/package_search"
 _USGS_ENDPOINT = "https://earthquake.usgs.gov/fdsnws/event/1/query"
-_OPENSKY_STATES_URL = "https://opensky-network.org/api/states/all"
 
 _BASELINES = {
     "Syria": 5000, "Yemen": 3000, "Ukraine": 8000, "Myanmar": 4000,
@@ -69,14 +86,6 @@ def _risk_level(score: float) -> str:
     return "low"
 
 
-def _instability_level(index: float) -> str:
-    if index >= 75:
-        return "critical"
-    if index >= 50:
-        return "high"
-    if index >= 25:
-        return "medium"
-    return "low"
 
 
 # ---------------------------------------------------------------------------
@@ -388,24 +397,28 @@ async def _instability_single(
     country_code: str,
     now: datetime,
 ) -> dict:
-    """Compute full 5-component instability index for a single country."""
+    """Compute CII v2 instability index for a single country.
+
+    Uses 4 weighted domains: unrest, conflict, security, information.
+    Applies country-specific event multiplier and UCDP/displacement boosts.
+    """
+    country_name = _ISO3_TO_NAME.get(country_code, country_code)
+    event_multiplier = get_event_multiplier(country_code)
+    start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    end_date = now.strftime("%Y-%m-%d")
 
     # --- Parallel data gathering -------------------------------------------
 
-    async def _conflict_score() -> float:
-        """Score 0-20 based on ACLED event count in the last 30 days."""
+    async def _fetch_acled() -> list[dict]:
+        """Fetch ACLED events for this country."""
         access_token = os.environ.get("ACLED_ACCESS_TOKEN")
         if not access_token:
-            return 0.0
-
-        country_name = _ISO3_TO_NAME.get(country_code, country_code)
-        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-        end_date = now.strftime("%Y-%m-%d")
+            return []
 
         data = await fetcher.get_json(
             _ACLED_URL,
             source="acled",
-            cache_key=f"intel:cii:conflict:{country_code}",
+            cache_key=f"intel:cii2:acled:{country_code}",
             cache_ttl=1800,
             params={
                 "key": access_token,
@@ -417,146 +430,134 @@ async def _instability_single(
             },
         )
         if data is None:
-            return 0.0
+            return []
+        return data.get("data", []) if isinstance(data, dict) else []
 
-        count = len(data.get("data", []))
-        # Thresholds: 0 events = 0, 500+ = 20
-        return min(20.0, (count / 500.0) * 20.0)
+    async def _fetch_outages() -> int:
+        """Count internet outages mentioning this country."""
+        from . import infrastructure
+        result = await infrastructure.fetch_internet_outages(fetcher)
+        count = 0
+        for outage in result.get("outages", []):
+            countries_list = outage.get("countries", [])
+            if isinstance(countries_list, list):
+                for c in countries_list:
+                    if isinstance(c, str) and country_code.lower() in c.lower():
+                        count += 1
+        return count
 
-    async def _economic_score() -> float:
-        """Score 0-20 based on World Bank inflation rate."""
-        url = f"{_WB_BASE}/{country_code}/indicator/FP.CPI.TOTL.ZG"
-        data = await fetcher.get_json(
-            url,
-            source="world-bank",
-            cache_key=f"intel:cii:inflation:{country_code}",
-            cache_ttl=86400,
-            params={"format": "json", "per_page": 1, "date": "2023:2025"},
-        )
-        if data is None:
-            return 0.0
-
-        try:
-            if isinstance(data, list) and len(data) >= 2 and isinstance(data[1], list):
-                for rec in data[1]:
-                    value = rec.get("value")
-                    if value is not None:
-                        inflation = float(value)
-                        # Thresholds: 0% = 0, 50%+ = 20
-                        return min(20.0, max(0.0, (abs(inflation) / 50.0) * 20.0))
-        except (ValueError, TypeError, KeyError, IndexError):
-            pass
-        return 0.0
-
-    async def _humanitarian_score() -> float:
-        """Score 0-20 based on HDX crisis dataset count."""
-        params: dict = {
-            "q": "crisis",
-            "rows": 50,
-            "sort": "metadata_modified desc",
-            "fq": f"groups:{country_code.lower()}",
-        }
-        data = await fetcher.get_json(
-            _HDX_SEARCH_URL,
-            source="hdx",
-            cache_key=f"intel:cii:humanitarian:{country_code}",
-            cache_ttl=21600,
-            params=params,
-        )
-        if data is None:
-            return 0.0
-
-        try:
-            count = data.get("result", {}).get("count", 0)
-            # Thresholds: 0 datasets = 0, 200+ = 20
-            return min(20.0, (int(count) / 200.0) * 20.0)
-        except (ValueError, TypeError):
-            return 0.0
-
-    async def _internet_score() -> float:
-        """Score 0-20 based on Cloudflare Radar connectivity data.
-
-        This is a best-effort check; Cloudflare Radar's public API may
-        not be available or may require auth.  Returns 0 on failure.
-        """
-        # Cloudflare Radar does not have an easy free API for this.
-        # Placeholder: return 0 (no disruption data).
-        return 0.0
-
-    async def _military_score() -> float:
-        """Score 0-20 based on OpenSky military flight density near country."""
-        # Use a rough bounding box for the country.  For simplicity,
-        # we only score countries in _ISO3_TO_NAME with known hotspot
-        # regions.
+    async def _fetch_military() -> int:
+        """Count military aircraft near this country."""
         _COUNTRY_BBOX = {
             "SYR": "32,35,37,42", "UKR": "44,22,52,40",
             "YEM": "12,42,19,55", "MMR": "10,92,28,101",
             "SDN": "8,21,23,39", "ETH": "3,33,15,48",
             "NGA": "4,3,14,15", "COD": "-13,12,5,31",
             "AFG": "29,60,38,75", "IRQ": "29,39,37,49",
+            "IRN": "25,44,40,63", "ISR": "29,34,33,36",
+            "PSE": "31,34,32,35", "LBN": "33,35,34,37",
+            "TWN": "21,119,26,122", "PRK": "37,124,43,131",
         }
         bbox = _COUNTRY_BBOX.get(country_code)
         if bbox is None:
-            return 0.0
+            return 0
 
-        parts = bbox.split(",")
-        params: dict[str, str] = {}
-        if len(parts) == 4:
-            params["lamin"] = parts[0]
-            params["lomin"] = parts[1]
-            params["lamax"] = parts[2]
-            params["lomax"] = parts[3]
+        from . import military as mil_mod
+        result = await mil_mod.fetch_military_flights(fetcher, bbox=bbox)
+        return result.get("count", 0)
 
-        data = await fetcher.get_json(
-            _OPENSKY_STATES_URL,
-            source="opensky",
-            cache_key=f"intel:cii:military:{country_code}",
-            cache_ttl=300,
-            params=params if params else None,
+    async def _fetch_news_velocity() -> int:
+        """Estimate news velocity from GDELT."""
+        from . import news
+        result = await news.fetch_gdelt_search(
+            fetcher, query=country_name, mode="artlist", limit=100,
         )
-        if data is None:
-            return 0.0
+        return result.get("count", 0)
 
-        states = data.get("states") or []
-        # Count all aircraft (military filtering adds complexity; using
-        # total density as a proxy for activity).
-        count = len(states)
-        # Thresholds: 0 = 0, 200+ = 20
-        return min(20.0, (count / 200.0) * 20.0)
-
-    conflict, economic, humanitarian, internet, military = await asyncio.gather(
-        _conflict_score(),
-        _economic_score(),
-        _humanitarian_score(),
-        _internet_score(),
-        _military_score(),
+    acled_events, outage_count, mil_count, news_vel = await asyncio.gather(
+        _fetch_acled(),
+        _fetch_outages(),
+        _fetch_military(),
+        _fetch_news_velocity(),
     )
 
-    instability_index = round(conflict + economic + humanitarian + internet + military, 1)
+    # Classify ACLED events into protests/riots vs armed conflict
+    protest_count = 0
+    riot_count = 0
+    conflict_count = 0
+    total_fatalities = 0
+    for ev in acled_events:
+        event_type = (ev.get("event_type") or "").lower()
+        fat = 0
+        try:
+            fat = int(ev.get("fatalities", 0))
+        except (ValueError, TypeError):
+            pass
+        total_fatalities += fat
+
+        if "protest" in event_type:
+            protest_count += 1
+        elif "riot" in event_type:
+            riot_count += 1
+        else:
+            conflict_count += 1
+
+    # Score each domain (0-25)
+    unrest_val = score_unrest(protest_count, riot_count)
+    conflict_val = score_conflict_v2(conflict_count, total_fatalities)
+    security_val = score_security(mil_count, outage_count)
+    info_val = score_information(news_vel)
+
+    # UCDP floor: active wars get a minimum score
+    ucdp_floor = None
+    country_cfg = TIER1_COUNTRIES.get(country_code)
+    if country_cfg and country_cfg.get("baseline_risk", 0) >= 80:
+        ucdp_floor = 70.0
+    elif country_cfg and country_cfg.get("baseline_risk", 0) >= 60:
+        ucdp_floor = 50.0
+
+    # Displacement boost
+    displacement_boost = 0.0
+    # (Would require UNHCR fetch; simplified: use baseline_risk as proxy)
+    if country_cfg and country_cfg.get("baseline_risk", 0) >= 70:
+        displacement_boost = 3.0
+
+    cii = compute_cii(
+        unrest=unrest_val,
+        conflict=conflict_val,
+        security=security_val,
+        information=info_val,
+        event_multiplier=event_multiplier,
+        ucdp_floor=ucdp_floor,
+        displacement_boost=displacement_boost,
+    )
 
     return {
         "country_code": country_code,
-        "instability_index": instability_index,
-        "components": {
-            "conflict_intensity": round(conflict, 1),
-            "economic_stress": round(economic, 1),
-            "humanitarian_crisis": round(humanitarian, 1),
-            "internet_disruptions": round(internet, 1),
-            "military_activity": round(military, 1),
+        "country_name": country_name,
+        **cii,
+        "raw_data": {
+            "acled_events": len(acled_events),
+            "protests": protest_count,
+            "riots": riot_count,
+            "conflict_events": conflict_count,
+            "fatalities": total_fatalities,
+            "military_aircraft": mil_count,
+            "internet_outages": outage_count,
+            "news_articles": news_vel,
         },
-        "risk_level": _instability_level(instability_index),
-        "source": "instability-index",
+        "source": "instability-index-v2",
         "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 
 async def _instability_multi(fetcher: Fetcher, now: datetime) -> dict:
-    """Compute simplified instability index for focus countries using ACLED."""
+    """Compute CII v2 instability index for focus countries using ACLED."""
     access_token = os.environ.get("ACLED_ACCESS_TOKEN")
     if not access_token:
         return {
             "error": "ACLED_ACCESS_TOKEN not configured",
-            "source": "instability-index",
+            "source": "instability-index-v2",
             "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
@@ -567,7 +568,7 @@ async def _instability_multi(fetcher: Fetcher, now: datetime) -> dict:
     data = await fetcher.get_json(
         _ACLED_URL,
         source="acled",
-        cache_key="intel:cii:multi:global:30d",
+        cache_key="intel:cii2:multi:global:30d",
         cache_ttl=1800,
         params={
             "key": access_token,
@@ -578,34 +579,73 @@ async def _instability_multi(fetcher: Fetcher, now: datetime) -> dict:
         },
     )
 
-    country_counts: dict[str, int] = {}
+    # Classify events by country and type
+    country_data: dict[str, dict] = {}
     if data is not None:
-        for event in data.get("data", []):
+        events_list = data.get("data", []) if isinstance(data, dict) else []
+        for event in events_list:
             country_name = event.get("country")
-            if country_name:
-                country_counts[country_name] = country_counts.get(country_name, 0) + 1
+            if not country_name:
+                continue
+            if country_name not in country_data:
+                country_data[country_name] = {
+                    "protests": 0, "riots": 0, "conflict": 0,
+                    "fatalities": 0, "total": 0,
+                }
+            cd = country_data[country_name]
+            cd["total"] += 1
+            event_type = (event.get("event_type") or "").lower()
+            fat = 0
+            try:
+                fat = int(event.get("fatalities", 0))
+            except (ValueError, TypeError):
+                pass
+            cd["fatalities"] += fat
+            if "protest" in event_type:
+                cd["protests"] += 1
+            elif "riot" in event_type:
+                cd["riots"] += 1
+            else:
+                cd["conflict"] += 1
 
-    # Map focus country codes to names and compute simplified index
+    # Compute CII v2 for each focus country
     results: list[dict] = []
     for code in _FOCUS_COUNTRIES:
         name = _ISO3_TO_NAME.get(code, code)
-        events = country_counts.get(name, 0)
-        baseline_annual = _BASELINES.get(name, 500)
-        monthly_baseline = baseline_annual / 12.0
+        cd = country_data.get(name, {
+            "protests": 0, "riots": 0, "conflict": 0,
+            "fatalities": 0, "total": 0,
+        })
+        multiplier = get_event_multiplier(code)
 
-        # Simplified CII: conflict component scaled to 0-100
-        if monthly_baseline > 0:
-            ratio = events / monthly_baseline
-        else:
-            ratio = 0.0
-        instability = min(100.0, round(ratio * 50.0, 1))
+        unrest_val = score_unrest(cd["protests"], cd["riots"])
+        conflict_val = score_conflict_v2(cd["conflict"], cd["fatalities"])
+        # Security and information not available in multi-country mode
+        security_val = 0.0
+        info_val = 0.0
+
+        # UCDP floor from countries config
+        country_cfg = TIER1_COUNTRIES.get(code)
+        ucdp_floor = None
+        if country_cfg and country_cfg.get("baseline_risk", 0) >= 80:
+            ucdp_floor = 70.0
+        elif country_cfg and country_cfg.get("baseline_risk", 0) >= 60:
+            ucdp_floor = 50.0
+
+        cii = compute_cii(
+            unrest=unrest_val,
+            conflict=conflict_val,
+            security=security_val,
+            information=info_val,
+            event_multiplier=multiplier,
+            ucdp_floor=ucdp_floor,
+        )
 
         results.append({
             "country_code": code,
             "country_name": name,
-            "instability_index": instability,
-            "events_30d": events,
-            "risk_level": _instability_level(instability),
+            **cii,
+            "events_30d": cd["total"],
         })
 
     results.sort(key=lambda r: r["instability_index"], reverse=True)
@@ -613,9 +653,9 @@ async def _instability_multi(fetcher: Fetcher, now: datetime) -> dict:
     return {
         "countries": results,
         "count": len(results),
-        "note": "Simplified index based on ACLED conflict data only. "
-                "Use country_code parameter for full 5-component analysis.",
-        "source": "instability-index",
+        "note": "Multi-country CII v2 using ACLED unrest + conflict. "
+                "Use country_code for full 4-domain analysis.",
+        "source": "instability-index-v2",
         "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -719,5 +759,339 @@ async def fetch_signal_convergence(
     return {
         "hotspots": hotspots,
         "source": "signal-convergence",
+        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Function 5: Focal Point Detection
+# ---------------------------------------------------------------------------
+
+async def fetch_focal_points(fetcher: Fetcher) -> dict:
+    """Gather multi-source events and detect focal points.
+
+    Fetches news headlines, military flights, internet outages, and ACLED
+    protests in parallel, normalizes them into events, and runs focal point
+    detection to find entities where multiple signals converge.
+
+    Args:
+        fetcher: Shared HTTP fetcher with caching and circuit breaking.
+
+    Returns:
+        Dict with focal_points list, count, source, and timestamp.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Import source modules for parallel data gathering
+    from . import news, military, infrastructure, conflict
+
+    async def _fetch_news_events() -> list[dict]:
+        result = await news.fetch_news_feed(fetcher, limit=100)
+        events = []
+        for item in result.get("items", []):
+            title = item.get("title", "")
+            # Extract entity: try to match country names from title
+            matched_iso = match_country_by_name(title)
+            if matched_iso:
+                country_cfg = TIER1_COUNTRIES.get(matched_iso)
+                entity = country_cfg["name"] if country_cfg else matched_iso
+                events.append({
+                    "entity": entity,
+                    "type": "news",
+                    "timestamp": item.get("published") or now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "country": entity,
+                    "weight": 1.0,
+                })
+        return events
+
+    async def _fetch_military_events() -> list[dict]:
+        result = await military.fetch_theater_posture(fetcher)
+        events = []
+        for theater_name, theater_data in result.get("theaters", {}).items():
+            count = theater_data.get("count", 0)
+            if count > 0:
+                for country in theater_data.get("countries", []):
+                    events.append({
+                        "entity": country,
+                        "type": "military",
+                        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "country": country,
+                        "weight": min(3.0, count / 10.0),
+                    })
+        return events
+
+    async def _fetch_outage_events() -> list[dict]:
+        result = await infrastructure.fetch_internet_outages(fetcher)
+        events = []
+        for outage in result.get("outages", []):
+            countries_list = outage.get("countries", [])
+            if isinstance(countries_list, list):
+                for c in countries_list:
+                    if c:
+                        events.append({
+                            "entity": c,
+                            "type": "infrastructure",
+                            "timestamp": outage.get("start") or now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "country": c,
+                            "weight": 2.0 if outage.get("is_ongoing") else 1.0,
+                        })
+        return events
+
+    async def _fetch_protest_events() -> list[dict]:
+        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
+        if not access_token:
+            return []
+
+        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        end_date = now.strftime("%Y-%m-%d")
+        data = await fetcher.get_json(
+            _ACLED_URL,
+            source="acled",
+            cache_key="intel:focal:acled:protests:7d",
+            cache_ttl=1800,
+            params={
+                "key": access_token,
+                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
+                "limit": 200,
+                "event_date": f"{start_date}|{end_date}",
+                "event_date_where": "BETWEEN",
+                "event_type": "Protests",
+            },
+        )
+        events = []
+        if data is not None:
+            acled_list = data.get("data", []) if isinstance(data, dict) else []
+            for ev in acled_list:
+                country = ev.get("country")
+                if country:
+                    events.append({
+                        "entity": country,
+                        "type": "protest",
+                        "timestamp": ev.get("event_date") or now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "country": country,
+                        "weight": 1.0,
+                    })
+        return events
+
+    news_events, mil_events, outage_events, protest_events = await asyncio.gather(
+        _fetch_news_events(),
+        _fetch_military_events(),
+        _fetch_outage_events(),
+        _fetch_protest_events(),
+    )
+
+    all_events = news_events + mil_events + outage_events + protest_events
+    focal_points = detect_focal_points(all_events)
+
+    return {
+        "focal_points": focal_points,
+        "count": len(focal_points),
+        "total_events_analyzed": len(all_events),
+        "source": "focal-point-analysis",
+        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Function 6: Signal Summary
+# ---------------------------------------------------------------------------
+
+async def fetch_signal_summary(
+    fetcher: Fetcher,
+    country: str | None = None,
+) -> dict:
+    """Run signal aggregator v2 across all domains.
+
+    Fetches ACLED conflict, USGS earthquakes, NASA FIRMS wildfires,
+    Cloudflare outages, military flights, and UNHCR displacement in parallel,
+    then aggregates signals by country with convergence scoring.
+
+    Args:
+        fetcher: Shared HTTP fetcher with caching and circuit breaking.
+        country: Optional country name to filter results.
+
+    Returns:
+        Dict with countries list, count, source, and timestamp.
+    """
+    now = datetime.now(timezone.utc)
+
+    from . import conflict, infrastructure, military, displacement
+
+    async def _fetch_conflict() -> list[dict]:
+        result = await conflict.fetch_acled_events(fetcher, days=7, limit=200)
+        return result.get("events", [])
+
+    async def _fetch_earthquakes() -> list[dict]:
+        from . import seismology
+        result = await seismology.fetch_earthquakes(fetcher, min_magnitude=4.5, hours=168, limit=100)
+        return result.get("earthquakes", [])
+
+    async def _fetch_outages() -> list[dict]:
+        result = await infrastructure.fetch_internet_outages(fetcher)
+        return result.get("outages", [])
+
+    async def _fetch_military() -> list[dict]:
+        result = await military.fetch_theater_posture(fetcher)
+        aircraft = []
+        for theater_data in result.get("theaters", {}).values():
+            # Theater posture returns summary, not individual aircraft
+            for c in theater_data.get("countries", []):
+                aircraft.append({
+                    "origin_country": c,
+                    "count": theater_data.get("count", 0),
+                })
+        return aircraft
+
+    async def _fetch_protests() -> list[dict]:
+        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
+        if not access_token:
+            return []
+        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        end_date = now.strftime("%Y-%m-%d")
+        data = await fetcher.get_json(
+            _ACLED_URL,
+            source="acled",
+            cache_key="intel:signals:acled:protests:7d",
+            cache_ttl=1800,
+            params={
+                "key": access_token,
+                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
+                "limit": 200,
+                "event_date": f"{start_date}|{end_date}",
+                "event_date_where": "BETWEEN",
+                "event_type": "Protests",
+            },
+        )
+        if data is None:
+            return []
+        acled_list = data.get("data", []) if isinstance(data, dict) else []
+        return [
+            {"country": ev.get("country"), "event_type": ev.get("event_type")}
+            for ev in acled_list
+            if ev.get("country")
+        ]
+
+    async def _fetch_displacement() -> list[dict]:
+        result = await displacement.fetch_displacement_summary(fetcher)
+        return result.get("by_origin", [])
+
+    (
+        conflict_events, earthquake_data, outage_data,
+        military_data, protest_data, displacement_data,
+    ) = await asyncio.gather(
+        _fetch_conflict(),
+        _fetch_earthquakes(),
+        _fetch_outages(),
+        _fetch_military(),
+        _fetch_protests(),
+        _fetch_displacement(),
+    )
+
+    aggregated = aggregate_country_signals(
+        conflict_events=conflict_events,
+        displacement_data=displacement_data,
+        earthquake_data=earthquake_data,
+        outage_data=outage_data,
+        military_data=military_data,
+        protest_data=protest_data,
+    )
+
+    # Filter to specific country if requested
+    if country:
+        filtered = {}
+        lower_country = country.lower()
+        for c_name, c_data in aggregated.items():
+            if lower_country in c_name.lower():
+                filtered[c_name] = c_data
+        aggregated = filtered
+
+    # Convert to list format
+    countries_list = [
+        {"country": name, **data}
+        for name, data in aggregated.items()
+    ]
+
+    return {
+        "countries": countries_list[:50],
+        "count": len(countries_list),
+        "source": "signal-aggregation-v2",
+        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Function 7: Temporal Anomaly Detection
+# ---------------------------------------------------------------------------
+
+async def fetch_temporal_anomalies(fetcher: Fetcher) -> dict:
+    """Record observations and check for temporal anomalies.
+
+    Fetches current counts of military flights (by theater), ACLED events
+    (by country), and fires (by region), records each as a temporal
+    observation, and reports any that deviate significantly from baselines.
+
+    Args:
+        fetcher: Shared HTTP fetcher with caching and circuit breaking.
+
+    Returns:
+        Dict with anomalies list, observations_recorded count, source,
+        and timestamp.
+    """
+    now = datetime.now(timezone.utc)
+
+    from . import military
+
+    anomalies: list[dict] = []
+    observations_recorded = 0
+
+    # Military flights by theater
+    posture = await military.fetch_theater_posture(fetcher)
+    for theater_name, theater_data in posture.get("theaters", {}).items():
+        count = theater_data.get("count", 0)
+        result = _temporal.record_and_check("military_flights", theater_name, count)
+        observations_recorded += 1
+        if result is not None:
+            anomalies.append(result)
+
+    # ACLED events by country (top focus countries)
+    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
+    if access_token:
+        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        end_date = now.strftime("%Y-%m-%d")
+        data = await fetcher.get_json(
+            _ACLED_URL,
+            source="acled",
+            cache_key="intel:temporal:acled:global:7d",
+            cache_ttl=1800,
+            params={
+                "key": access_token,
+                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
+                "limit": 500,
+                "event_date": f"{start_date}|{end_date}",
+                "event_date_where": "BETWEEN",
+            },
+        )
+        if data is not None:
+            country_counts: dict[str, int] = {}
+            events_list = data.get("data", []) if isinstance(data, dict) else []
+            for event in events_list:
+                c = event.get("country")
+                if c:
+                    country_counts[c] = country_counts.get(c, 0) + 1
+
+            for c_name, c_count in country_counts.items():
+                result = _temporal.record_and_check("acled_events", c_name, c_count)
+                observations_recorded += 1
+                if result is not None:
+                    anomalies.append(result)
+
+    # Sort anomalies by z_score descending
+    anomalies.sort(key=lambda a: a.get("z_score", 0), reverse=True)
+
+    return {
+        "anomalies": anomalies,
+        "anomaly_count": len(anomalies),
+        "observations_recorded": observations_recorded,
+        "source": "temporal-anomaly-detection",
         "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
