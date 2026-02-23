@@ -33,14 +33,6 @@ REGIONS = {
     "oceania": "105,-50,180,-5",
 }
 
-# CSV columns from FIRMS VIIRS SNPP NRT (1-day)
-_CSV_COLUMNS = [
-    "latitude", "longitude", "bright_ti4", "scan", "track",
-    "acq_date", "acq_time", "satellite", "confidence", "version",
-    "bright_ti5", "frp", "daynight",
-]
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -52,28 +44,50 @@ def _utc_now_iso() -> str:
 def _parse_fires_csv(csv_text: str) -> list[dict]:
     """Parse FIRMS CSV text into a list of fire dicts.
 
-    Only returns high-confidence detections.
+    Only returns high-confidence detections. Uses header row to find
+    column indices dynamically (FIRMS CSV schema varies by sensor).
     """
+    if not isinstance(csv_text, str):
+        logger.warning("Expected CSV text, got %s", type(csv_text).__name__)
+        return []
+
     lines = csv_text.strip().split("\n")
     if len(lines) < 2:
         return []
 
-    # Skip the header line
+    # Parse header to find column indices dynamically
+    header = [h.strip().lower() for h in lines[0].split(",")]
+    col = {name: idx for idx, name in enumerate(header)}
+
+    idx_lat = col.get("latitude")
+    idx_lon = col.get("longitude")
+    idx_bright = col.get("bright_ti4")
+    idx_conf = col.get("confidence")
+    idx_frp = col.get("frp")
+    idx_date = col.get("acq_date")
+    idx_time = col.get("acq_time")
+    idx_dn = col.get("daynight")
+    idx_sat = col.get("satellite")
+
+    if idx_lat is None or idx_lon is None or idx_conf is None:
+        logger.warning("Missing required columns in FIRMS CSV header: %s", header)
+        return []
+
     fires: list[dict] = []
     for line in lines[1:]:
         fields = line.split(",")
-        if len(fields) < len(_CSV_COLUMNS):
+        if len(fields) <= max(idx_lat, idx_lon, idx_conf):
             continue
 
-        confidence = fields[8].strip()
+        confidence = fields[idx_conf].strip()
         if confidence.lower() not in ("high", "h"):
             continue
 
         try:
-            lat = float(fields[0])
-            lon = float(fields[1])
-            brightness = float(fields[2])
-            frp_val = float(fields[11]) if fields[11].strip() else 0.0
+            lat = float(fields[idx_lat])
+            lon = float(fields[idx_lon])
+            brightness = float(fields[idx_bright]) if idx_bright is not None and idx_bright < len(fields) else 0.0
+            frp_val = float(fields[idx_frp]) if idx_frp is not None and idx_frp < len(fields) and fields[idx_frp].strip() else 0.0
         except (ValueError, IndexError):
             continue
 
@@ -83,10 +97,10 @@ def _parse_fires_csv(csv_text: str) -> list[dict]:
             "brightness": brightness,
             "frp": frp_val,
             "confidence": confidence,
-            "acq_date": fields[5].strip(),
-            "acq_time": fields[6].strip(),
-            "daynight": fields[12].strip(),
-            "satellite": fields[7].strip(),
+            "acq_date": fields[idx_date].strip() if idx_date is not None and idx_date < len(fields) else "",
+            "acq_time": fields[idx_time].strip() if idx_time is not None and idx_time < len(fields) else "",
+            "daynight": fields[idx_dn].strip() if idx_dn is not None and idx_dn < len(fields) else "",
+            "satellite": fields[idx_sat].strip() if idx_sat is not None and idx_sat < len(fields) else "",
         })
 
     return fires
@@ -162,7 +176,7 @@ async def fetch_wildfires(
         csv_text = await fetcher.get_text(
             url=url,
             source="nasa-firms",
-            cache_key=f"wildfire:fires:{region_name}",
+            cache_key=f"wildfire:csv:{region_name}",
             cache_ttl=1800,
         )
 
