@@ -5,957 +5,1019 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phoenix Intelligence Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#x1F525;</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Fira Code', monospace; background: #0a0e1a; color: #c8d6e5; line-height: 1.5; }
-        a { color: #60a5fa; text-decoration: none; }
+/* ═══════════════ VARIABLES ═══════════════ */
+:root {
+    --bg: #070B14;
+    --panel: rgba(10, 15, 28, 0.82);
+    --card: rgba(12, 18, 32, 0.95);
+    --border: rgba(0, 230, 255, 0.07);
+    --glow: rgba(0, 230, 255, 0.15);
+    --text: #A8B8CC;
+    --dim: #4A5C72;
+    --bright: #E2ECF5;
+    --accent: #00E5FF;
+    --red: #FF3B3B;
+    --amber: #FF9F1C;
+    --blue: #4DA8FF;
+    --green: #34D399;
+    --purple: #A78BFA;
+    --teal: #2DD4BF;
+    --gold: #F0B840;
+    --pink: #FF6B9D;
+    --ui: 'Chakra Petch', sans-serif;
+    --mono: 'Share Tech Mono', monospace;
+    --radius: 10px;
+    --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+/* ═══════════════ RESET ═══════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: var(--ui); background: var(--bg); color: var(--text); line-height: 1.5; }
+a { color: var(--accent); text-decoration: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
 
-        /* Status bar */
-        .status-bar {
-            position: sticky; top: 0; z-index: 100;
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.5rem 1.5rem;
-            background: linear-gradient(135deg, #0f172a 0%, #1a1f36 100%);
-            border-bottom: 1px solid #2d3748;
-            font-size: 0.8rem;
-        }
-        .status-bar .title { font-size: 1rem; font-weight: 700; color: #f1f5f9; letter-spacing: 0.5px; }
-        .status-bar .title span { color: #f59e0b; }
-        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-        .dot-green { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-        .dot-yellow { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
-        .dot-red { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
-        .pulse { animation: pulse 2s ease-in-out infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+/* ═══════════════ LOADING ═══════════════ */
+#loading {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--bg); transition: opacity 0.8s;
+}
+#loading.gone { opacity: 0; pointer-events: none; }
+.load-ring {
+    width: 64px; height: 64px;
+    border: 2px solid rgba(0,229,255,0.08);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1.2s linear infinite;
+}
+.load-text {
+    margin-top: 1.5rem; font-family: var(--mono);
+    font-size: 0.7rem; letter-spacing: 3px; color: var(--dim);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Navigation tabs */
-        .nav-tabs {
-            display: flex; gap: 0; background: #0f172a; border-bottom: 1px solid #1e293b;
-            padding: 0 1.5rem; overflow-x: auto;
-        }
-        .nav-tab {
-            padding: 0.6rem 1.2rem; font-size: 0.78rem; font-weight: 500;
-            color: #64748b; cursor: pointer; border-bottom: 2px solid transparent;
-            white-space: nowrap; transition: all 0.2s;
-        }
-        .nav-tab:hover { color: #94a3b8; }
-        .nav-tab.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+/* ═══════════════ MAP ═══════════════ */
+#map { position: fixed; inset: 0; z-index: 1; }
+.leaflet-container { background: var(--bg) !important; }
+.leaflet-control-zoom a {
+    background: var(--panel) !important; color: var(--accent) !important;
+    border-color: var(--border) !important; backdrop-filter: blur(12px);
+}
+.leaflet-control-zoom a:hover { background: rgba(0,229,255,0.12) !important; }
 
-        /* Sections */
-        .section { display: none; }
-        .section.active { display: block; }
+/* ═══════════════ VIGNETTE ═══════════════ */
+#vignette {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(7,11,20,0.55) 100%);
+}
 
-        /* Grid layout */
-        .container { max-width: 1600px; margin: 0 auto; padding: 1rem; }
-        .grid { display: grid; gap: 1rem; }
-        .grid-4 { grid-template-columns: repeat(4, 1fr); }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+/* ═══════════════ GLASS BASE ═══════════════ */
+.glass {
+    background: var(--panel);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border); border-radius: var(--radius);
+}
 
-        /* Cards */
-        .card {
-            background: linear-gradient(180deg, #111827 0%, #0f1523 100%);
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            padding: 1rem;
-            overflow: hidden;
-            transition: border-color 0.3s;
-        }
-        .card:hover { border-color: #334155; }
-        .card-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 0.75rem; padding-bottom: 0.5rem;
-            border-bottom: 1px solid #1e293b;
-        }
-        .card-title { font-size: 0.85rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        .card-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; background: #1e293b; color: #64748b; }
-        .card-error { color: #64748b; font-style: italic; font-size: 0.85rem; padding: 1rem 0; }
-        .span-2 { grid-column: span 2; }
-        .span-3 { grid-column: span 3; }
+/* ═══════════════ TOP BAR ═══════════════ */
+#topBar {
+    position: fixed; top: 10px; left: 10px; right: 10px; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; gap: 12px;
+}
+.hud-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.logo-mark { font-size: 1.1rem; line-height: 1; }
+.logo-text { font-weight: 700; font-size: 0.9rem; letter-spacing: 2px; color: var(--bright); }
+.logo-dim { font-weight: 400; color: var(--dim); }
+.hud-stats { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; flex: 1; min-width: 0; }
+.stat-pill {
+    padding: 3px 10px; border-radius: 6px;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 0.68rem;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.stat-pill .v { color: var(--bright); font-weight: 600; }
+.stat-pill .l { color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; }
+.stat-pill .v.warn { color: var(--amber); }
+.stat-pill .v.crit { color: var(--red); }
+.hud-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.68rem; font-family: var(--mono); color: var(--dim); flex-shrink: 0;
+}
+.conn-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green);
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+.conn-dot.err { background: var(--red); box-shadow: 0 0 8px var(--red); }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.sep { width: 1px; height: 12px; background: var(--border); }
 
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-        th { color: #64748b; font-weight: 500; text-align: left; padding: 0.35rem 0.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 0.35rem 0.5rem; border-top: 1px solid #1a2236; white-space: nowrap; }
-        tr:hover td { background: rgba(255,255,255,0.02); }
+/* ═══════════════ LAYER PANEL ═══════════════ */
+#layers {
+    position: fixed; top: 66px; left: 10px; z-index: 40;
+    width: 200px; padding: 12px 14px;
+}
+.panel-title {
+    font-size: 0.62rem; font-weight: 600; letter-spacing: 2.5px;
+    color: var(--dim); margin-bottom: 10px; text-transform: uppercase;
+}
+.layer-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; cursor: pointer; transition: opacity 0.2s;
+}
+.layer-row:hover { opacity: 0.85; }
+.layer-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.layer-label { font-size: 0.75rem; color: var(--text); flex: 1; }
+.layer-count {
+    font-family: var(--mono); font-size: 0.62rem; color: var(--dim);
+    min-width: 22px; text-align: right;
+}
+.toggle {
+    position: relative; width: 32px; height: 17px;
+    border-radius: 9px; background: #1a2030; flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+.toggle.on { box-shadow: 0 0 10px color-mix(in srgb, var(--lc, var(--accent)) 40%, transparent); }
+.toggle .knob {
+    position: absolute; top: 2px; left: 2px;
+    width: 13px; height: 13px; border-radius: 50%;
+    background: #8899aa; transition: transform 0.3s var(--ease), background 0.3s;
+}
+.toggle.on .knob { transform: translateX(15px); background: #fff; }
 
-        /* Values */
-        .up { color: #22c55e; }
-        .down { color: #ef4444; }
-        .muted { color: #4a5568; }
-        .bright { color: #f1f5f9; font-weight: 600; }
-        .warn { color: #f59e0b; }
+/* ═══════════════ DATA DRAWER ═══════════════ */
+#drawer {
+    position: fixed; top: 10px; right: 10px; bottom: 46px; z-index: 40;
+    width: 340px; display: flex; flex-direction: column;
+    transition: transform 0.4s var(--ease);
+}
+#drawer.closed { transform: translateX(360px); }
+.drawer-tab {
+    position: absolute; left: -34px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 56px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-right: none; border-radius: var(--radius) 0 0 var(--radius);
+    color: var(--accent); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; backdrop-filter: blur(16px);
+    transition: background 0.2s;
+}
+.drawer-tab:hover { background: rgba(0,229,255,0.06); }
+.drawer-inner {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 12px 14px;
+}
+.sh {
+    position: sticky; top: -12px; z-index: 5;
+    padding: 8px 14px 5px; margin: 12px -14px 6px;
+    font-size: 0.62rem; font-weight: 600; letter-spacing: 2.5px;
+    color: var(--accent); text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel); backdrop-filter: blur(20px);
+}
+.sh:first-child { margin-top: 0; }
+.dtable { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.68rem; margin: 4px 0 10px; }
+.dtable th { color: var(--dim); font-weight: 400; text-align: left; padding: 2px 4px; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.dtable td { padding: 2px 4px; border-top: 1px solid rgba(255,255,255,0.02); }
+.dtable tr:hover td { background: rgba(255,255,255,0.015); }
+.mini-row { display: flex; gap: 5px; margin: 4px 0 10px; flex-wrap: wrap; }
+.mini-box {
+    flex: 1; min-width: 60px; background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px; text-align: center;
+}
+.mini-box .v { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; color: var(--bright); }
+.mini-box .l { font-size: 0.55rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+.heatmap { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 10px; }
+.hm {
+    padding: 3px 7px; border-radius: 4px;
+    font-family: var(--mono); font-size: 0.64rem; font-weight: 600;
+    min-width: 62px; text-align: center;
+}
+.tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 10px; }
+.tag {
+    padding: 1px 7px; border-radius: 4px; font-size: 0.64rem;
+    background: rgba(255,255,255,0.04); color: var(--text);
+    border: 1px solid var(--border);
+}
+.tag-hot { background: rgba(255,59,59,0.1); color: var(--red); border-color: rgba(255,59,59,0.15); }
+.sub { font-size: 0.6rem; color: var(--dim); margin: 8px 0 3px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* Stat boxes */
-        .stat-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-        .stat-box {
-            flex: 1; min-width: 100px;
-            background: #0d1117; border: 1px solid #1e293b; border-radius: 6px;
-            padding: 0.75rem; text-align: center;
-        }
-        .stat-value { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
-        .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-top: 0.25rem; }
+/* ═══════════════ DETAIL MODAL ═══════════════ */
+#detail {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 100;
+    width: 400px; background: var(--card);
+    border-left: 1px solid var(--glow);
+    transform: translateX(100%); transition: transform 0.35s var(--ease);
+    overflow-y: auto; box-shadow: -8px 0 40px rgba(0,0,0,0.4);
+}
+#detail.open { transform: translateX(0); }
+.detail-close {
+    position: sticky; top: 0; float: right; z-index: 5;
+    background: none; border: none; color: var(--dim);
+    font-size: 1.5rem; cursor: pointer; padding: 12px 16px;
+    transition: color 0.2s;
+}
+.detail-close:hover { color: var(--bright); }
+.detail-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); clear: both; }
+.detail-cat { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.detail-cat-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    box-shadow: 0 0 10px var(--cat-color);
+}
+.detail-cat-label { font-size: 0.62rem; letter-spacing: 2.5px; text-transform: uppercase; color: var(--dim); }
+.detail-title { font-size: 1.1rem; font-weight: 700; color: var(--bright); line-height: 1.3; }
+.detail-subtitle { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); margin-top: 4px; }
+.detail-body { padding: 16px 24px 24px; }
+.df {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.025);
+}
+.df-l { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.df-v { font-family: var(--mono); font-size: 0.8rem; color: var(--bright); text-align: right; max-width: 60%; }
+.df-v.crit { color: var(--red); }
+.df-v.high { color: var(--amber); }
+.df-v.ok { color: var(--green); }
+.detail-link {
+    display: inline-block; margin-top: 14px; padding: 6px 14px;
+    background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 6px; font-size: 0.72rem; color: var(--accent);
+    transition: background 0.2s;
+}
+.detail-link:hover { background: rgba(0,229,255,0.15); }
 
-        /* Heatmap cells */
-        .heatmap { display: flex; flex-wrap: wrap; gap: 4px; }
-        .hm-cell {
-            padding: 6px 10px; border-radius: 4px; font-size: 0.78rem;
-            font-weight: 600; min-width: 90px; text-align: center;
-        }
+/* ═══════════════ BOTTOM TICKER ═══════════════ */
+#ticker {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    height: 34px; display: flex; align-items: center; overflow: hidden;
+}
+.ticker-label {
+    padding: 0 14px; font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 2.5px; color: var(--accent); white-space: nowrap;
+    border-right: 1px solid var(--border); height: 100%;
+    display: flex; align-items: center; flex-shrink: 0;
+}
+.ticker-track { flex: 1; overflow: hidden; position: relative; }
+.ticker-scroll {
+    display: flex; gap: 36px; white-space: nowrap;
+    animation: tickerScroll var(--ticker-dur, 90s) linear infinite;
+}
+@keyframes tickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-item { font-family: var(--mono); font-size: 0.66rem; color: var(--text); }
+.ticker-item .src { color: var(--dim); margin-left: 6px; }
+.ticker-item .sep { color: rgba(0,229,255,0.2); margin: 0 4px; }
 
-        /* Tags */
-        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin: 2px; background: #1a2236; color: #94a3b8; }
-        .tag-hot { background: #7f1d1d; color: #fca5a5; }
+/* ═══════════════ MAP MARKERS ═══════════════ */
+.mk-quake {
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,59,59,0.85) 20%, rgba(255,59,59,0) 70%);
+    border: 1.5px solid rgba(255,59,59,0.5);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-quake:hover { transform: scale(1.3); }
+.mk-quake.crit { animation: glow-red 1.8s ease-in-out infinite; }
+@keyframes glow-red {
+    0%,100% { box-shadow: 0 0 4px rgba(255,59,59,0.3); }
+    50% { box-shadow: 0 0 22px rgba(255,59,59,0.8); }
+}
+.mk-mil {
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(77,168,255,0.8) 25%, rgba(77,168,255,0) 70%);
+    border: 1.5px solid rgba(77,168,255,0.45);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-mil:hover { transform: scale(1.3); }
+.mk-conflict {
+    border-radius: 2px; transform: rotate(45deg);
+    background: radial-gradient(circle, rgba(255,159,28,0.85) 20%, rgba(255,159,28,0) 70%);
+    border: 1.5px solid rgba(255,159,28,0.45);
+    cursor: pointer;
+}
+.mk-conflict:hover { box-shadow: 0 0 14px rgba(255,159,28,0.6); }
+.mk-fire {
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(240,184,64,0.9) 20%, rgba(255,100,0,0) 70%);
+    border: 1.5px solid rgba(240,160,40,0.5);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-fire:hover { transform: scale(1.3); }
+.mk-conv {
+    border-radius: 50%;
+    border: 2px dashed rgba(167,139,250,0.35);
+    background: rgba(167,139,250,0.04);
+    cursor: pointer; transition: border-color 0.2s, background 0.2s;
+}
+.mk-conv:hover { border-color: rgba(167,139,250,0.6); background: rgba(167,139,250,0.1); }
 
-        /* Scrollable */
-        .scroll-box { max-height: 280px; overflow-y: auto; }
-        .scroll-box::-webkit-scrollbar { width: 4px; }
-        .scroll-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+/* Leaflet tooltip override */
+.leaflet-tooltip.mk-tip {
+    background: var(--card); color: var(--bright);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-family: var(--mono); font-size: 0.68rem;
+    padding: 3px 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.leaflet-tooltip.mk-tip::before { border-top-color: var(--border); }
 
-        /* Severity badges */
-        .sev-critical { color: #ef4444; font-weight: 700; }
-        .sev-high { color: #f59e0b; }
-        .sev-medium { color: #6b7280; }
+/* ═══════════════ UTILITY ═══════════════ */
+.up { color: var(--green); } .down { color: var(--red); }
+.warn { color: var(--amber); } .dim { color: var(--dim); }
+.bright { color: var(--bright); } .accent { color: var(--accent); }
 
-        /* Risk levels */
-        .risk-extreme { color: #ef4444; font-weight: 700; }
-        .risk-high { color: #f97316; font-weight: 600; }
-        .risk-elevated { color: #f59e0b; }
-        .risk-moderate { color: #64748b; }
-        .risk-low { color: #22c55e; }
-
-        /* Map */
-        #geoMap { height: 400px; border-radius: 8px; border: 1px solid #1e293b; }
-        .leaflet-container { background: #0a0e1a; }
-        .map-legend { position: absolute; bottom: 10px; right: 10px; background: rgba(15,23,42,0.9); padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; z-index: 1000; border: 1px solid #1e293b; }
-        .map-legend div { margin: 2px 0; }
-        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-
-        /* Charts */
-        .chart-container { position: relative; height: 220px; }
-
-        /* Loading overlay */
-        #loading {
-            position: fixed; inset: 0; z-index: 200;
-            display: flex; align-items: center; justify-content: center;
-            background: #0a0e1a; transition: opacity 0.5s;
-        }
-        #loading.hidden { opacity: 0; pointer-events: none; }
-        .loader { width: 40px; height: 40px; border: 3px solid #1e293b; border-top-color: #f59e0b; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Responsive */
-        @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: repeat(2, 1fr); } .span-3 { grid-column: span 2; } }
-        @media (max-width: 800px) { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } .span-2, .span-3 { grid-column: span 1; } }
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media (max-width: 900px) {
+    #drawer { width: 100%; top: auto; bottom: 34px; height: 45vh; right: 0; left: 0; border-radius: var(--radius) var(--radius) 0 0; }
+    #drawer.closed { transform: translateY(100%); }
+    .drawer-tab { left: 50%; top: -30px; transform: translateX(-50%); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--border); border-bottom: none; width: 56px; height: 26px; }
+    #detail { width: 100%; }
+    #layers { width: 160px; }
+    .hud-stats { display: none; }
+}
     </style>
 </head>
 <body>
 
-<div id="loading"><div class="loader"></div></div>
-
-<!-- Status Bar -->
-<div class="status-bar">
-    <div class="title"><span>PHOENIX</span> INTELLIGENCE DASHBOARD</div>
-    <div>
-        <span class="status-dot dot-green pulse" id="connDot"></span>
-        <span id="connLabel">Connecting...</span>
-        &middot; <span id="sourceHealth">--</span>
-        &middot; <span id="lastUpdate">--</span>
-        &middot; <span id="feedCount">--</span>
-    </div>
+<!-- LOADING -->
+<div id="loading">
+    <div class="load-ring"></div>
+    <div class="load-text">INITIALIZING INTELLIGENCE FEEDS</div>
 </div>
 
-<!-- Navigation -->
-<div class="nav-tabs">
-    <div class="nav-tab active" data-tab="overview">Overview</div>
-    <div class="nav-tab" data-tab="markets">Markets</div>
-    <div class="nav-tab" data-tab="security">Security</div>
-    <div class="nav-tab" data-tab="conflict">Conflict &amp; Humanitarian</div>
-    <div class="nav-tab" data-tab="natural">Natural &amp; Climate</div>
-    <div class="nav-tab" data-tab="geomap">Geospatial Map</div>
-    <div class="nav-tab" data-tab="charts">Trend Charts</div>
+<!-- FULL-SCREEN MAP -->
+<div id="map"></div>
+<div id="vignette"></div>
+
+<!-- TOP BAR -->
+<header id="topBar" class="glass">
+    <div class="hud-logo">
+        <span class="logo-mark">&#x1F525;</span>
+        <span class="logo-text">PHOENIX<span class="logo-dim"> INTEL</span></span>
+    </div>
+    <div class="hud-stats" id="hudStats"></div>
+    <div class="hud-status">
+        <span class="conn-dot" id="connDot"></span>
+        <span id="connLabel">CONNECTING</span>
+        <span class="sep"></span>
+        <span id="feedCount">--</span>
+        <span class="sep"></span>
+        <span id="lastUpdate">--</span>
+    </div>
+</header>
+
+<!-- LAYER CONTROLS -->
+<aside id="layers" class="glass">
+    <div class="panel-title">LAYERS</div>
+    <div class="layer-row" data-layer="quakes">
+        <span class="layer-dot" style="background:var(--red)"></span>
+        <span class="layer-label">Earthquakes</span>
+        <span class="layer-count" id="cntQuakes">0</span>
+        <div class="toggle on" style="--lc:var(--red)"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="military">
+        <span class="layer-dot" style="background:var(--blue)"></span>
+        <span class="layer-label">Military</span>
+        <span class="layer-count" id="cntMil">0</span>
+        <div class="toggle on" style="--lc:var(--blue)"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="conflict">
+        <span class="layer-dot" style="background:var(--amber)"></span>
+        <span class="layer-label">Conflict</span>
+        <span class="layer-count" id="cntConflict">0</span>
+        <div class="toggle on" style="--lc:var(--amber)"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="fires">
+        <span class="layer-dot" style="background:var(--gold)"></span>
+        <span class="layer-label">Wildfires</span>
+        <span class="layer-count" id="cntFires">0</span>
+        <div class="toggle on" style="--lc:var(--gold)"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="convergence">
+        <span class="layer-dot" style="background:var(--purple)"></span>
+        <span class="layer-label">Convergence</span>
+        <span class="layer-count" id="cntConv">0</span>
+        <div class="toggle on" style="--lc:var(--purple)"><div class="knob"></div></div>
+    </div>
+</aside>
+
+<!-- DATA DRAWER -->
+<aside id="drawer" class="glass closed">
+    <button class="drawer-tab" id="drawerToggle" title="Toggle data panel">&#x25C0;</button>
+    <div class="drawer-inner" id="drawerBody"></div>
+</aside>
+
+<!-- DETAIL MODAL -->
+<div id="detail">
+    <button class="detail-close" id="detailClose">&times;</button>
+    <div class="detail-header" id="detailHeader"></div>
+    <div class="detail-body" id="detailBody"></div>
 </div>
 
-<div class="container">
-
-<!-- ======================= OVERVIEW TAB ======================= -->
-<div class="section active" id="tab-overview">
-    <div class="stat-row" style="margin-top:1rem;" id="overviewStats"></div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Equity Indices</span><span class="card-badge" id="equityBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Symbol</th><th>Price</th><th>Chg</th><th>%</th></tr></thead><tbody id="equityBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Cyber Threats</span><span class="card-badge" id="cyberBadge">--</span></div>
-            <div id="cyberStats" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Threat</th><th>Type</th><th>Severity</th></tr></thead><tbody id="cyberBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Risk Scores</span><span class="card-badge" id="riskBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Country</th><th>Score</th><th>Level</th><th>Events</th></tr></thead><tbody id="riskBody"></tbody></table></div>
-        </div>
+<!-- BOTTOM TICKER -->
+<div id="ticker" class="glass">
+    <div class="ticker-label">INTEL</div>
+    <div class="ticker-track">
+        <div class="ticker-scroll" id="tickerContent"></div>
     </div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Armed Conflict (ACLED)</span><span class="card-badge" id="acledBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Event</th><th>Country</th><th>Fatalities</th><th>Date</th></tr></thead><tbody id="acledBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Displacement</span></div>
-            <div id="displacementStats" class="stat-row"></div>
-            <div class="scroll-box" style="margin-top:0.75rem;"><table><thead><tr><th>Country</th><th>Refugees</th><th>IDPs</th></tr></thead><tbody id="displacementBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Signal Convergence</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Region</th><th>Score</th><th>Signals</th></tr></thead><tbody id="convergenceBody"></tbody></table></div>
-        </div>
-    </div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Natural Events</span><span class="card-badge" id="naturalBadge">--</span></div>
-            <div id="naturalStats" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Mag</th><th>Location</th><th>Depth</th><th>Time</th></tr></thead><tbody id="quakeBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Intelligence News</span><span class="card-badge" id="newsBadge">--</span></div>
-            <div id="trendingKeywords" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Headline</th><th>Source</th></tr></thead><tbody id="newsBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Prediction Markets</span><span class="card-badge" id="predBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Market</th><th>Prob</th><th>Vol</th></tr></thead><tbody id="predBody"></tbody></table></div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MARKETS TAB ======================= -->
-<div class="section" id="tab-markets">
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Equity Indices</span><span class="card-badge" id="equityBadge2">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Symbol</th><th>Price</th><th>Chg</th><th>%</th></tr></thead><tbody id="equityBody2"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Cryptocurrency</span><span class="card-badge" id="cryptoBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Coin</th><th>Price</th><th>24h</th><th>MCap</th></tr></thead><tbody id="cryptoBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Stablecoin Peg Status</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Coin</th><th>Price</th><th>Deviation</th><th>Status</th></tr></thead><tbody id="stablecoinBody"></tbody></table></div>
-        </div>
-    </div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card span-2">
-            <div class="card-header"><span class="card-title">Sector Performance</span></div>
-            <div class="heatmap" id="sectorHeatmap"></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Macro Signals</span><span class="card-badge">Live</span></div>
-            <div id="macroContent" class="stat-row" style="flex-wrap:wrap;"></div>
-        </div>
-    </div>
-    <div class="grid grid-2" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Energy Prices</span></div>
-            <div id="energyContent"></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">ETF Flows</span><span class="card-badge" id="etfBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>ETF</th><th>Price</th><th>Chg%</th><th>Volume</th></tr></thead><tbody id="etfBody"></tbody></table></div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= SECURITY TAB ======================= -->
-<div class="section" id="tab-security">
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Cyber Threats</span><span class="card-badge" id="cyberBadge2">--</span></div>
-            <div id="cyberStats2" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Threat</th><th>Type</th><th>Severity</th></tr></thead><tbody id="cyberBody2"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Military Activity</span><span class="card-badge" id="milBadge">--</span></div>
-            <div id="milStats" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Callsign</th><th>Type</th><th>Alt</th><th>Origin</th></tr></thead><tbody id="milBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Infrastructure</span></div>
-            <div id="infraStats" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box" id="infraContent"></div>
-        </div>
-    </div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Airport Delays</span><span class="card-badge" id="aviationBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Airport</th><th>Reason</th><th>Delay</th></tr></thead><tbody id="aviationBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Nav Warnings</span><span class="card-badge" id="navBadge">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Area</th><th>Warning</th></tr></thead><tbody id="navBody"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Risk Scores</span><span class="card-badge" id="riskBadge2">--</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Country</th><th>Score</th><th>Level</th><th>Events</th></tr></thead><tbody id="riskBody2"></tbody></table></div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= CONFLICT & HUMANITARIAN TAB ======================= -->
-<div class="section" id="tab-conflict">
-    <div class="grid grid-2" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Armed Conflict - ACLED</span><span class="card-badge" id="acledBadge2">--</span></div>
-            <div class="scroll-box" style="max-height:350px;"><table><thead><tr><th>Type</th><th>Country</th><th>Location</th><th>Fatalities</th><th>Date</th></tr></thead><tbody id="acledBody2"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Armed Conflict - UCDP</span><span class="card-badge" id="ucdpBadge">--</span></div>
-            <div class="scroll-box" style="max-height:350px;"><table><thead><tr><th>Conflict</th><th>Type</th><th>Fatalities</th><th>Location</th></tr></thead><tbody id="ucdpBody"></tbody></table></div>
-        </div>
-    </div>
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card span-2">
-            <div class="card-header"><span class="card-title">Global Displacement (UNHCR)</span></div>
-            <div id="displacementStats2" class="stat-row" style="margin-bottom:0.75rem;"></div>
-            <div class="scroll-box"><table><thead><tr><th>Country of Origin</th><th>Refugees</th><th>Asylum Seekers</th><th>IDPs</th><th>Stateless</th></tr></thead><tbody id="displacementBody2"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Signal Convergence</span></div>
-            <div class="scroll-box"><table><thead><tr><th>Region</th><th>Score</th><th>Quakes</th></tr></thead><tbody id="convergenceBody2"></tbody></table></div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= NATURAL & CLIMATE TAB ======================= -->
-<div class="section" id="tab-natural">
-    <div class="grid grid-3" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Earthquakes</span><span class="card-badge" id="quakeBadge2">--</span></div>
-            <div class="scroll-box" style="max-height:350px;"><table><thead><tr><th>Mag</th><th>Location</th><th>Depth</th><th>Time</th></tr></thead><tbody id="quakeBody2"></tbody></table></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Wildfires</span><span class="card-badge" id="fireBadge">--</span></div>
-            <div id="fireContent"></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Climate Anomalies</span></div>
-            <div class="scroll-box" id="climateContent"></div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= GEOSPATIAL MAP TAB ======================= -->
-<div class="section" id="tab-geomap">
-    <div style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header">
-                <span class="card-title">Geospatial Intelligence</span>
-                <span>
-                    <label style="font-size:0.75rem;margin-right:8px;"><input type="checkbox" id="mapQuakes" checked> Quakes</label>
-                    <label style="font-size:0.75rem;margin-right:8px;"><input type="checkbox" id="mapFlights" checked> Military</label>
-                    <label style="font-size:0.75rem;margin-right:8px;"><input type="checkbox" id="mapConflict" checked> Conflict</label>
-                    <label style="font-size:0.75rem;"><input type="checkbox" id="mapConvergence" checked> Convergence</label>
-                </span>
-            </div>
-            <div id="geoMap"></div>
-            <div class="map-legend">
-                <div><span class="legend-dot" style="background:#ef4444;"></span>Earthquakes</div>
-                <div><span class="legend-dot" style="background:#60a5fa;"></span>Military Flights</div>
-                <div><span class="legend-dot" style="background:#f59e0b;"></span>Conflict Events</div>
-                <div><span class="legend-dot" style="background:#a78bfa;"></span>Signal Convergence</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= TREND CHARTS TAB ======================= -->
-<div class="section" id="tab-charts">
-    <div class="grid grid-2" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Earthquake Activity (Recent Updates)</span></div>
-            <div class="chart-container"><canvas id="chartQuakes"></canvas></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Cyber Threat Volume</span></div>
-            <div class="chart-container"><canvas id="chartCyber"></canvas></div>
-        </div>
-    </div>
-    <div class="grid grid-2" style="margin-top:1rem;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Military Aircraft Tracked</span></div>
-            <div class="chart-container"><canvas id="chartMilitary"></canvas></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">Conflict Events (ACLED)</span></div>
-            <div class="chart-container"><canvas id="chartConflict"></canvas></div>
-        </div>
-    </div>
-</div>
-
 </div>
 
 <script>
-// ========================================================================
-// Phoenix Intelligence Dashboard v2 - Full-spectrum live intelligence
-// NOTE: All innerHTML assignments use DOMPurify.sanitize() for XSS safety.
-// ========================================================================
+// ════════════════════════════════════════════════════════════════════════════
+// Phoenix Intelligence Dashboard v3 — Map-first global intelligence
+// All innerHTML assignments use DOMPurify.sanitize() for XSS safety.
+// ════════════════════════════════════════════════════════════════════════════
 
-var $ = function(sel) { return document.querySelector(sel); };
-var $$ = function(sel) { return document.querySelectorAll(sel); };
-var safe = function(html) { return DOMPurify.sanitize(html, {ALLOWED_TAGS: ['tr','td','th','table','thead','tbody','a','span','div','br','canvas'], ALLOWED_ATTR: ['class','style','href','target','id']}); };
+var $ = function(s) { return document.querySelector(s); };
+var $$ = function(s) { return document.querySelectorAll(s); };
+var safe = function(h) { return DOMPurify.sanitize(h, {ALLOWED_TAGS: ['tr','td','th','table','thead','tbody','a','span','div','br'], ALLOWED_ATTR: ['class','style','href','target']}); };
 
-function fmtNum(n, dec) { dec = dec != null ? dec : 2; return n == null ? '\u2014' : Number(n).toLocaleString(undefined, {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
+function fmtNum(n, d) { d = d != null ? d : 2; return n == null ? '\u2014' : Number(n).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
 function fmtPct(n) { return n == null ? '\u2014' : (n >= 0 ? '+' : '') + fmtNum(n); }
-function fmtBig(n) { if (n == null) return '\u2014'; if (Math.abs(n) >= 1e12) return '$' + (n/1e12).toFixed(1) + 'T'; if (Math.abs(n) >= 1e9) return '$' + (n/1e9).toFixed(1) + 'B'; if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M'; return '$' + fmtNum(n, 0); }
-function fmtBigPlain(n) { if (n == null) return '\u2014'; if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + 'B'; if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M'; if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K'; return String(n); }
+function fmtBig(n) { if (n == null) return '\u2014'; var a = Math.abs(n); if (a >= 1e12) return '$'+(n/1e12).toFixed(1)+'T'; if (a >= 1e9) return '$'+(n/1e9).toFixed(1)+'B'; if (a >= 1e6) return '$'+(n/1e6).toFixed(1)+'M'; return '$'+fmtNum(n,0); }
+function fmtBigPlain(n) { if (n == null) return '\u2014'; var a = Math.abs(n); if (a >= 1e9) return (n/1e9).toFixed(1)+'B'; if (a >= 1e6) return (n/1e6).toFixed(1)+'M'; if (a >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
 function cls(n) { return n == null ? '' : n >= 0 ? 'up' : 'down'; }
-function sevCls(s) { s = (s||'').toLowerCase(); return s === 'critical' ? 'sev-critical' : s === 'high' ? 'sev-high' : 'sev-medium'; }
-function riskCls(s) { s = (s||'').toLowerCase(); if (s === 'extreme' || s === 'critical') return 'risk-extreme'; if (s === 'high') return 'risk-high'; if (s === 'elevated') return 'risk-elevated'; if (s === 'moderate') return 'risk-moderate'; return 'risk-low'; }
-function ago(ts) { if (!ts) return '\u2014'; var d = new Date(ts), s = Math.floor((Date.now() - d.getTime()) / 1000); if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s/60) + 'm ago'; if (s < 86400) return Math.floor(s/3600) + 'h ago'; return Math.floor(s/86400) + 'd ago'; }
 function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-function trunc(s, n) { n = n || 50; s = s || ''; return s.length > n ? s.slice(0, n) + '...' : s; }
+function trunc(s, n) { n = n || 50; s = s || ''; return s.length > n ? s.slice(0, n) + '\u2026' : s; }
+function ago(ts) { if (!ts) return '\u2014'; var s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000); if (s < 60) return s + 's'; if (s < 3600) return Math.floor(s/60) + 'm'; if (s < 86400) return Math.floor(s/3600) + 'h'; return Math.floor(s/86400) + 'd'; }
 
-// Tab navigation
-$$('.nav-tab').forEach(function(tab) {
-    tab.addEventListener('click', function() {
-        $$('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
-        $$('.section').forEach(function(s) { s.classList.remove('active'); });
-        tab.classList.add('active');
-        var target = document.getElementById('tab-' + tab.dataset.tab);
-        if (target) target.classList.add('active');
-        if (tab.dataset.tab === 'geomap' && !mapInitialized) initMap();
+// ════════════ STATE ════════════
+var latestData = null;
+var map = null;
+var mapLayers = {};
+var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true };
+var drawerOpen = false;
+
+// ════════════ MAP INIT ════════════
+function initMap() {
+    map = L.map('map', { zoomControl: false, attributionControl: false, worldCopyJump: true }).setView([20, 0], 2.5);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(map);
+    mapLayers.quakes = L.layerGroup().addTo(map);
+    mapLayers.military = L.layerGroup().addTo(map);
+    mapLayers.conflict = L.layerGroup().addTo(map);
+    mapLayers.fires = L.layerGroup().addTo(map);
+    mapLayers.convergence = L.layerGroup().addTo(map);
+}
+
+// ════════════ LAYER TOGGLES ════════════
+$$('.layer-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+        if (e.target.closest('.toggle')) { /* handled below */ }
+        var layer = row.dataset.layer;
+        var toggle = row.querySelector('.toggle');
+        toggle.classList.toggle('on');
+        layerState[layer] = toggle.classList.contains('on');
+        if (layerState[layer]) { mapLayers[layer].addTo(map); }
+        else { map.removeLayer(mapLayers[layer]); }
     });
 });
 
-// ========================================================================
-// Update functions - all use safe() for innerHTML (DOMPurify XSS protection)
-// ========================================================================
+// ════════════ DRAWER TOGGLE ════════════
+$('#drawerToggle').addEventListener('click', function() {
+    drawerOpen = !drawerOpen;
+    $('#drawer').classList.toggle('closed', !drawerOpen);
+    this.innerHTML = drawerOpen ? '&#x25B6;' : '&#x25C0;';
+    setTimeout(function() { if (map) map.invalidateSize(); }, 400);
+});
 
-function updateEquity(data) {
-    if (!data || data.error) { $('#equityBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var quotes = data.quotes || data.data || (Array.isArray(data) ? data : []);
-    $('#equityBadge').textContent = quotes.length + ' symbols';
-    var rows = quotes.map(function(q) {
-        var price = q.price || q.regularMarketPrice || 0;
-        var chg = q.change || q.regularMarketChange || 0;
-        var pct = q.change_pct || q.regularMarketChangePercent || 0;
-        return '<tr><td class="bright">' + esc(q.symbol || '?') + '</td><td>' + fmtNum(price) + '</td><td class="' + cls(chg) + '">' + fmtPct(chg) + '</td><td class="' + cls(pct) + '">' + fmtPct(pct) + '%</td></tr>';
-    }).join('');
-    $('#equityBody').innerHTML = safe(rows);
-    if ($('#equityBody2')) { $('#equityBadge2').textContent = quotes.length + ' symbols'; $('#equityBody2').innerHTML = safe(rows); }
-}
+// ════════════ DETAIL MODAL ════════════
+var COLORS = { earthquake: 'var(--red)', military: 'var(--blue)', conflict: 'var(--amber)', fire: 'var(--gold)', convergence: 'var(--purple)' };
+var LABELS = { earthquake: 'EARTHQUAKE', military: 'MILITARY AIRCRAFT', conflict: 'CONFLICT EVENT', fire: 'WILDFIRE CLUSTER', convergence: 'SIGNAL CONVERGENCE' };
 
-function updateCrypto(data) {
-    if (!data || data.error) { $('#cryptoBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var coins = data.coins || data.data || (Array.isArray(data) ? data : []);
-    $('#cryptoBadge').textContent = coins.length + ' coins';
-    var rows = coins.slice(0, 15).map(function(c) {
-        var price = c.current_price || c.price || 0;
-        var chg = c.price_change_percentage_24h || c.change_24h || 0;
-        var mcap = c.market_cap || 0;
-        return '<tr><td class="bright">' + esc((c.symbol || c.id || '?').toUpperCase()) + '</td><td>$' + fmtNum(price) + '</td><td class="' + cls(chg) + '">' + fmtPct(chg) + '%</td><td class="muted">' + fmtBig(mcap) + '</td></tr>';
-    }).join('');
-    $('#cryptoBody').innerHTML = safe(rows);
-}
+function showDetail(type, d) {
+    var title = '', subtitle = '', fields = [], link = '';
+    var c = COLORS[type] || 'var(--accent)';
 
-function updateStablecoins(data) {
-    if (!data || data.error) { $('#stablecoinBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var coins = data.stablecoins || data.data || (Array.isArray(data) ? data : []);
-    var rows = coins.map(function(c) {
-        var depegged = c.is_depegged;
-        var devPct = c.peg_deviation_pct || 0;
-        return '<tr><td class="bright">' + esc((c.id || '?').toUpperCase()) + '</td><td>$' + fmtNum(c.price, 4) + '</td><td class="' + (devPct > 0.5 ? 'warn' : 'muted') + '">' + fmtNum(devPct, 3) + '%</td><td class="' + (depegged ? 'sev-critical' : 'up') + '">' + (depegged ? 'DEPEGGED' : 'Stable') + '</td></tr>';
-    }).join('');
-    $('#stablecoinBody').innerHTML = safe(rows);
-}
-
-function updateMacro(data) {
-    if (!data || data.error) { $('#macroContent').innerHTML = safe('<div class="card-error">Unavailable</div>'); return; }
-    var signals = data.signals || data;
-    if (typeof signals !== 'object') { $('#macroContent').innerHTML = safe('<div class="card-error">No data</div>'); return; }
-    var html = '';
-    for (var name in signals) {
-        if (!signals.hasOwnProperty(name)) continue;
-        var info = signals[name];
-        if (info && typeof info === 'object' && !Array.isArray(info)) {
-            var entries = Object.entries(info);
-            var mainVal = entries[0] ? entries[0][1] : '\u2014';
-            html += '<div class="stat-box"><div class="stat-value" style="font-size:1.1rem;">' + (typeof mainVal === 'number' ? fmtNum(mainVal, mainVal < 1 ? 4 : 2) : esc(String(mainVal))) + '</div><div class="stat-label">' + esc(name.replace(/_/g, ' ')) + '</div></div>';
-        } else {
-            html += '<div class="stat-box"><div class="stat-value" style="font-size:1.1rem;">' + (info != null ? esc(String(info)) : '\u2014') + '</div><div class="stat-label">' + esc(name.replace(/_/g, ' ')) + '</div></div>';
-        }
-    }
-    $('#macroContent').innerHTML = safe(html);
-}
-
-function updateSectorHeatmap(data) {
-    if (!data || data.error) { $('#sectorHeatmap').innerHTML = safe('<div class="card-error">Unavailable</div>'); return; }
-    var sectors = data.sectors || data.data || (Array.isArray(data) ? data : []);
-    var html = sectors.map(function(s) {
-        var pct = s.change_pct || 0; var bg, fg;
-        if (pct >= 2) { bg = '#166534'; fg = '#86efac'; } else if (pct >= 0.5) { bg = '#14532d'; fg = '#86efac'; }
-        else if (pct >= 0) { bg = '#1a2e1a'; fg = '#86efac'; } else if (pct >= -0.5) { bg = '#2e1a1a'; fg = '#fca5a5'; }
-        else if (pct >= -2) { bg = '#7f1d1d'; fg = '#fca5a5'; } else { bg = '#991b1b'; fg = '#fca5a5'; }
-        return '<div class="hm-cell" style="background:' + bg + ';color:' + fg + ';">' + esc(s.symbol || s.name || '?') + '<br>' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%</div>';
-    }).join('');
-    $('#sectorHeatmap').innerHTML = safe(html);
-}
-
-function updateEnergy(data) {
-    if (!data || data.error) { $('#energyContent').innerHTML = safe('<div class="card-error">Unavailable</div>'); return; }
-    var prices = data.prices || data.data || data;
-    if (typeof prices !== 'object') { $('#energyContent').innerHTML = safe('<div class="card-error">No data</div>'); return; }
-    var html = '<table><thead><tr><th>Commodity</th><th>Price</th></tr></thead><tbody>';
-    var entries = Array.isArray(prices) ? prices : Object.entries(prices).map(function(e) { return Object.assign({name: e[0]}, typeof e[1] === 'object' ? e[1] : {value: e[1]}); });
-    entries.forEach(function(item) {
-        var name = item.name || item.series_id || '?';
-        var val = item.value || item.price || item.last_value || '\u2014';
-        html += '<tr><td>' + esc(name.replace(/_/g, ' ')) + '</td><td class="bright">' + (typeof val === 'number' ? fmtNum(val) : esc(String(val))) + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    $('#energyContent').innerHTML = safe(html);
-}
-
-function updateETF(data) {
-    if (!data || data.error) { $('#etfBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var etfs = data.etfs || data.data || (Array.isArray(data) ? data : []);
-    $('#etfBadge').textContent = etfs.length + ' ETFs';
-    var rows = etfs.map(function(e) {
-        return '<tr><td class="bright">' + esc(e.symbol || '?') + '</td><td>' + fmtNum(e.price) + '</td><td class="' + cls(e.change_pct) + '">' + fmtPct(e.change_pct) + '%</td><td class="muted">' + fmtBigPlain(e.volume) + '</td></tr>';
-    }).join('');
-    $('#etfBody').innerHTML = safe(rows);
-}
-
-function updateCyber(data) {
-    if (!data || data.error) { return; }
-    var threats = data.threats || data.data || (Array.isArray(data) ? data : []);
-    var bySev = data.by_severity || {};
-    var badge = threats.length + ' IOCs';
-    var stats = safe('<div class="stat-box"><div class="stat-value sev-critical">' + (bySev.critical || 0) + '</div><div class="stat-label">Critical</div></div><div class="stat-box"><div class="stat-value sev-high">' + (bySev.high || 0) + '</div><div class="stat-label">High</div></div><div class="stat-box"><div class="stat-value">' + (bySev.medium || 0) + '</div><div class="stat-label">Medium</div></div>');
-    var rows = threats.slice(0, 20).map(function(t) {
-        return '<tr><td>' + esc(trunc(t.indicator || t.url || t.ioc || '?', 40)) + '</td><td class="muted">' + esc(t.threat_type || t.type || t.source || '\u2014') + '</td><td class="' + sevCls(t.severity) + '">' + esc(t.severity || '\u2014') + '</td></tr>';
-    }).join('');
-    ['','2'].forEach(function(sfx) {
-        var b = $('#cyberBadge' + sfx); if (b) b.textContent = badge;
-        var s = $('#cyberStats' + sfx); if (s) s.innerHTML = stats;
-        var bd = $('#cyberBody' + sfx); if (bd) bd.innerHTML = safe(rows);
-    });
-}
-
-function updateMilitary(data) {
-    if (!data || data.error) { $('#milBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var flights = data.flights || data.aircraft || data.data || (Array.isArray(data) ? data : []);
-    var total = data.total_military_aircraft || flights.length;
-    $('#milBadge').textContent = total + ' aircraft';
-    $('#milStats').innerHTML = safe('<div class="stat-box"><div class="stat-value">' + total + '</div><div class="stat-label">Military Aircraft</div></div>');
-    var rows = flights.slice(0, 15).map(function(f) {
-        var alt = f.altitude ? Math.round(f.altitude) + 'ft' : f.baro_altitude ? Math.round(f.baro_altitude) + 'ft' : '\u2014';
-        return '<tr><td class="bright">' + esc(f.callsign || f.icao24 || '?') + '</td><td class="muted">' + esc(f.type || f.category || '\u2014') + '</td><td>' + alt + '</td><td class="muted">' + esc(f.origin_country || '\u2014') + '</td></tr>';
-    }).join('');
-    $('#milBody').innerHTML = safe(rows);
-}
-
-function updateInfra(data_outages, data_cables) {
-    var statsHtml = '', contentHtml = '';
-    if (data_outages && !data_outages.error) {
-        var outages = data_outages.outages || data_outages.data || (Array.isArray(data_outages) ? data_outages : []);
-        var count = data_outages.ongoing_count || outages.length;
-        statsHtml += '<div class="stat-box"><div class="stat-value ' + (count > 0 ? 'warn' : '') + '">' + count + '</div><div class="stat-label">Outages</div></div>';
-        if (outages.length > 0) {
-            contentHtml += '<table><thead><tr><th>Location</th><th>Status</th></tr></thead><tbody>';
-            outages.slice(0, 8).forEach(function(o) { contentHtml += '<tr><td>' + esc(o.location || o.asName || '?') + '</td><td class="warn">' + esc(o.status || 'ongoing') + '</td></tr>'; });
-            contentHtml += '</tbody></table>';
-        }
-    }
-    if (data_cables && !data_cables.error) {
-        var score = data_cables.health_score || data_cables.overall_score;
-        var warnings = data_cables.warnings || data_cables.data || [];
-        var warnCount = Array.isArray(warnings) ? warnings.length : 0;
-        statsHtml += '<div class="stat-box"><div class="stat-value">' + (score != null ? score + '%' : warnCount) + '</div><div class="stat-label">' + (score != null ? 'Cable Health' : 'Cable Warnings') + '</div></div>';
-    }
-    $('#infraStats').innerHTML = safe(statsHtml || '<div class="stat-box"><div class="stat-value muted">\u2014</div><div class="stat-label">No data</div></div>');
-    $('#infraContent').innerHTML = safe(contentHtml || '<div class="card-error">No active outages</div>');
-}
-
-function updateNatural(data_quakes, data_fires) {
-    var statsHtml = '';
-    if (data_quakes && !data_quakes.error) {
-        var quakes = data_quakes.earthquakes || data_quakes.features || data_quakes.data || (Array.isArray(data_quakes) ? data_quakes : []);
-        statsHtml += '<div class="stat-box"><div class="stat-value">' + quakes.length + '</div><div class="stat-label">Quakes</div></div>';
-        $('#naturalBadge').textContent = quakes.length + ' events';
-        var rows = quakes.slice(0, 15).map(function(q) {
-            var mag = q.magnitude || (q.properties && q.properties.mag) || '?';
-            var place = q.place || (q.properties && q.properties.place) || '?';
-            var depth = q.depth || (q.geometry && q.geometry.coordinates && q.geometry.coordinates[2]) || '?';
-            var time = q.time || (q.properties && q.properties.time) || '';
-            var magClass = mag >= 6 ? 'sev-critical' : mag >= 5 ? 'sev-high' : '';
-            return '<tr><td class="' + magClass + ' bright">' + (typeof mag === 'number' ? mag.toFixed(1) : mag) + '</td><td>' + esc(trunc(place, 35)) + '</td><td class="muted">' + (typeof depth === 'number' ? depth.toFixed(0) + 'km' : depth) + '</td><td class="muted">' + ago(time) + '</td></tr>';
-        }).join('');
-        $('#quakeBody').innerHTML = safe(rows);
-        if ($('#quakeBody2')) { $('#quakeBadge2').textContent = quakes.length + ' quakes'; $('#quakeBody2').innerHTML = safe(rows); }
-    }
-    if (data_fires && !data_fires.error) {
-        var fires = data_fires.fires || data_fires.hotspots || data_fires.data || [];
-        var count = data_fires.fire_count || data_fires.count || (Array.isArray(fires) ? fires.length : 0);
-        statsHtml += '<div class="stat-box"><div class="stat-value ' + (count > 100 ? 'warn' : '') + '">' + count + '</div><div class="stat-label">Wildfires</div></div>';
-        if ($('#fireBadge')) $('#fireBadge').textContent = count + ' fires';
-        if ($('#fireContent')) {
-            if (Array.isArray(fires) && fires.length > 0) {
-                var fhtml = '<table><thead><tr><th>Location</th><th>Brightness</th><th>Confidence</th></tr></thead><tbody>';
-                fires.slice(0, 15).forEach(function(f) { fhtml += '<tr><td>' + esc(f.location || (f.latitude ? f.latitude.toFixed(2) + ', ' + f.longitude.toFixed(2) : '?')) + '</td><td class="warn">' + (f.brightness || f.bright_ti4 || '\u2014') + '</td><td class="muted">' + esc(f.confidence || '\u2014') + '</td></tr>'; });
-                fhtml += '</tbody></table>';
-                $('#fireContent').innerHTML = safe(fhtml);
-            } else {
-                $('#fireContent').innerHTML = safe('<div class="stat-row"><div class="stat-box"><div class="stat-value ' + (count > 100 ? 'warn' : '') + '">' + count + '</div><div class="stat-label">Active Fires</div></div></div>');
+    if (type === 'earthquake') {
+        var mag = d.magnitude || 0;
+        title = 'M' + (typeof mag === 'number' ? mag.toFixed(1) : mag) + ' \u2014 ' + (d.place || 'Unknown');
+        subtitle = ago(d.time) + ' ago';
+        fields = [
+            ['Magnitude', typeof mag === 'number' ? mag.toFixed(1) : mag, mag >= 6 ? 'crit' : mag >= 5 ? 'high' : ''],
+            ['Location', d.place || '\u2014'],
+            ['Depth', d.depth_km != null ? d.depth_km.toFixed(0) + ' km' : '\u2014'],
+            ['Time', d.time ? new Date(d.time).toLocaleString() : '\u2014'],
+            ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014'],
+            ['Tsunami Alert', d.tsunami_alert ? 'YES' : 'No', d.tsunami_alert ? 'crit' : 'ok'],
+            ['Felt Reports', d.felt_reports || '\u2014'],
+            ['Alert Level', d.alert_level || 'None', d.alert_level === 'red' ? 'crit' : d.alert_level === 'orange' ? 'high' : '']
+        ];
+        if (d.url) link = d.url;
+    } else if (type === 'military') {
+        title = d.callsign || d.icao24 || 'Unknown Aircraft';
+        subtitle = d.origin_country || '';
+        fields = [
+            ['Callsign', d.callsign || '\u2014'],
+            ['ICAO24', d.icao24 || '\u2014'],
+            ['Origin', d.origin_country || '\u2014'],
+            ['Altitude', d.altitude_m != null ? Math.round(d.altitude_m) + ' m (' + Math.round(d.altitude_m * 3.281) + ' ft)' : '\u2014'],
+            ['Speed', d.velocity_ms != null ? Math.round(d.velocity_ms) + ' m/s (' + Math.round(d.velocity_ms * 1.944) + ' kts)' : '\u2014'],
+            ['Heading', d.heading != null ? Math.round(d.heading) + '\u00B0' : '\u2014'],
+            ['On Ground', d.on_ground ? 'Yes' : 'No'],
+            ['Squawk', d.squawk || '\u2014'],
+            ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014']
+        ];
+    } else if (type === 'conflict') {
+        var fat = d.fatalities || 0;
+        title = (d.event_type || d.type || 'Conflict Event');
+        subtitle = (d.country || '') + (d.event_date ? ' \u2014 ' + d.event_date : '');
+        fields = [
+            ['Event Type', d.event_type || d.type || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Location', d.location || d.admin1 || '\u2014'],
+            ['Fatalities', String(fat), fat > 10 ? 'crit' : fat > 0 ? 'high' : ''],
+            ['Date', d.event_date || '\u2014'],
+            ['Actor 1', d.actor1 || d.side_a || '\u2014'],
+            ['Actor 2', d.actor2 || d.side_b || '\u2014'],
+            ['Source', d.source || '\u2014'],
+            ['Notes', trunc(d.notes || '', 120)]
+        ];
+    } else if (type === 'fire') {
+        title = 'Fire Cluster \u2014 ' + d.fire_count + ' detections';
+        subtitle = d.lat.toFixed(2) + ', ' + d.lon.toFixed(2);
+        fields = [
+            ['Fire Count', String(d.fire_count), d.fire_count > 50 ? 'crit' : d.fire_count > 10 ? 'high' : ''],
+            ['Max FRP', d.max_frp != null ? d.max_frp.toFixed(1) + ' MW' : '\u2014', d.max_frp > 100 ? 'high' : ''],
+            ['Coordinates', d.lat.toFixed(4) + ', ' + d.lon.toFixed(4)],
+            ['Region', d._region || '\u2014']
+        ];
+    } else if (type === 'convergence') {
+        var score = d.convergence_score || 0;
+        title = d.name || 'Convergence Zone';
+        subtitle = 'Score: ' + score.toFixed(1);
+        fields = [
+            ['Convergence Score', score.toFixed(1), score >= 7 ? 'crit' : score >= 4 ? 'high' : '']
+        ];
+        var signals = d.signals || {};
+        for (var sk in signals) {
+            if (signals.hasOwnProperty(sk)) {
+                fields.push([sk.charAt(0).toUpperCase() + sk.slice(1), String(signals[sk])]);
             }
         }
+        if (d.lat != null) fields.push(['Coordinates', d.lat.toFixed(3) + ', ' + d.lon.toFixed(3)]);
     }
-    $('#naturalStats').innerHTML = safe(statsHtml || '<div class="card-error">Unavailable</div>');
-}
 
-function updateNews(data_news, data_trending) {
-    if (data_trending && !data_trending.error) {
-        var keywords = data_trending.keywords || data_trending.data || (Array.isArray(data_trending) ? data_trending : []);
-        var top = keywords.slice(0, 20);
-        if (top.length > 0) {
-            var khtml = top.map(function(k) {
-                var word = typeof k === 'string' ? k : (k.keyword || k.word || k.term || '?');
-                var count = typeof k === 'object' ? (k.count || k.frequency || '') : '';
-                var hot = count && count > 5;
-                return '<span class="tag ' + (hot ? 'tag-hot' : '') + '">' + esc(word) + (count ? ' (' + count + ')' : '') + '</span>';
-            }).join('');
-            $('#trendingKeywords').innerHTML = safe(khtml);
-        }
-    }
-    if (data_news && !data_news.error) {
-        var articles = data_news.articles || data_news.items || data_news.data || (Array.isArray(data_news) ? data_news : []);
-        $('#newsBadge').textContent = articles.length + ' items';
-        var rows = articles.slice(0, 20).map(function(a) {
-            var title = esc(trunc(a.title || '?', 55));
-            var link = a.link ? '<a href="' + esc(a.link) + '" target="_blank">' + title + '</a>' : title;
-            return '<tr><td>' + link + '</td><td class="muted">' + esc(trunc(a.source || a.feed || '', 15)) + '</td></tr>';
-        }).join('');
-        $('#newsBody').innerHTML = safe(rows);
-    }
-}
+    var hdr = '<div class="detail-cat"><span class="detail-cat-dot" style="background:' + c + ';--cat-color:' + c + '"></span><span class="detail-cat-label">' + esc(LABELS[type] || type) + '</span></div>' +
+              '<div class="detail-title">' + esc(title) + '</div>' +
+              (subtitle ? '<div class="detail-subtitle">' + esc(subtitle) + '</div>' : '');
 
-function updatePredictions(data) {
-    if (!data || data.error) { $('#predBody').innerHTML = safe('<tr><td colspan="3" class="card-error">Unavailable</td></tr>'); return; }
-    var mkts = data.markets || data.data || (Array.isArray(data) ? data : []);
-    $('#predBadge').textContent = mkts.length + ' markets';
-    var rows = mkts.slice(0, 15).map(function(m) {
-        var prob = m.probability || m.outcomePrices || m.yes_price;
-        var vol = m.volume || m.liquidityCloses || 0;
-        return '<tr><td>' + esc(trunc(m.question || m.title || m.groupItemTitle || '?', 45)) + '</td><td class="bright">' + (prob != null ? (typeof prob === 'number' ? (prob * 100).toFixed(0) + '%' : esc(String(prob))) : '\u2014') + '</td><td class="muted">' + fmtBig(vol) + '</td></tr>';
+    var body = fields.map(function(f) {
+        return '<div class="df"><span class="df-l">' + esc(f[0]) + '</span><span class="df-v ' + (f[2] || '') + '">' + esc(String(f[1])) + '</span></div>';
     }).join('');
-    $('#predBody').innerHTML = safe(rows);
+
+    if (link) body += '<a class="detail-link" href="' + esc(link) + '" target="_blank">View Source \u2192</a>';
+
+    $('#detailHeader').innerHTML = safe(hdr);
+    $('#detailBody').innerHTML = safe(body);
+    $('#detail').classList.add('open');
 }
 
-function updateAviation(data) {
-    if (!data || data.error) { $('#aviationBody').innerHTML = safe('<tr><td colspan="3" class="card-error">Unavailable</td></tr>'); return; }
-    var delays = data.delays || data.data || (Array.isArray(data) ? data : []);
-    $('#aviationBadge').textContent = delays.length + ' delays';
-    if (delays.length === 0) { $('#aviationBody').innerHTML = safe('<tr><td colspan="3" class="card-error">No active delays</td></tr>'); return; }
-    var rows = delays.slice(0, 15).map(function(d) {
-        return '<tr><td class="bright">' + esc(d.airport || d.iata || d.name || '?') + '</td><td class="muted">' + esc(trunc(d.reason || d.type || '\u2014', 30)) + '</td><td class="warn">' + esc(d.delay || d.average || d.min || '\u2014') + '</td></tr>';
-    }).join('');
-    $('#aviationBody').innerHTML = safe(rows);
-}
+function closeDetail() { $('#detail').classList.remove('open'); }
+$('#detailClose').addEventListener('click', closeDetail);
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDetail(); });
 
-function updateClimate(data) {
-    if (!data || data.error) { $('#climateContent').innerHTML = safe('<div class="card-error">Unavailable</div>'); return; }
-    var src = data.anomalies || data.zones || data.data || (Array.isArray(data) ? data : []);
-    var anomalies = Array.isArray(src) ? src : (typeof src === 'object' ? Object.values(src) : []);
-    if (anomalies.length === 0) { $('#climateContent').innerHTML = safe('<div class="card-error">No anomalies detected</div>'); return; }
-    var html = '<table><thead><tr><th>Zone</th><th>Temp</th><th>Precip</th></tr></thead><tbody>';
-    anomalies.slice(0, 15).forEach(function(a) {
-        var temp = a.temperature_anomaly || a.temp_anomaly || a.temp_deviation;
-        var precip = a.precipitation_anomaly || a.precip_anomaly || a.precip_deviation;
-        html += '<tr><td>' + esc(a.zone || a.name || a.region || '?') + '</td><td class="' + (temp > 0 ? 'warn' : 'up') + '">' + (temp != null ? (temp > 0 ? '+' : '') + fmtNum(temp, 1) + '\u00B0C' : '\u2014') + '</td><td class="muted">' + (precip != null ? fmtNum(precip, 1) + 'mm' : '\u2014') + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    $('#climateContent').innerHTML = safe(html);
-}
+// ════════════ MAP MARKER MANAGEMENT ════════════
 
-function updateNavWarnings(data) {
-    if (!data || data.error) { $('#navBody').innerHTML = safe('<tr><td colspan="2" class="card-error">Unavailable</td></tr>'); return; }
-    var warnings = data.warnings || data.data || (Array.isArray(data) ? data : []);
-    $('#navBadge').textContent = warnings.length + ' active';
-    if (warnings.length === 0) { $('#navBody').innerHTML = safe('<tr><td colspan="2" class="card-error">No active warnings</td></tr>'); return; }
-    var rows = warnings.slice(0, 12).map(function(w) {
-        return '<tr><td class="bright">' + esc(w.navArea || w.area || w.subregion || '?') + '</td><td class="muted">' + esc(trunc(w.text || w.description || w.subject || '\u2014', 50)) + '</td></tr>';
-    }).join('');
-    $('#navBody').innerHTML = safe(rows);
-}
-
-// New: Conflict, Displacement, Risk, Signal Convergence
-
-function updateACLED(data) {
-    if (!data || data.error) { return; }
-    var events = data.events || data.data || (Array.isArray(data) ? data : []);
-    var badge = (data.count || events.length) + ' events';
-    var rows1 = events.slice(0, 10).map(function(e) {
-        var fat = e.fatalities || 0;
-        return '<tr><td>' + esc(trunc(e.event_type || e.type || '?', 20)) + '</td><td class="muted">' + esc(e.country || '?') + '</td><td class="' + (fat > 10 ? 'sev-critical' : fat > 0 ? 'warn' : 'muted') + '">' + fat + '</td><td class="muted">' + esc(e.event_date || '\u2014') + '</td></tr>';
-    }).join('');
-    if ($('#acledBadge')) $('#acledBadge').textContent = badge;
-    if ($('#acledBody')) $('#acledBody').innerHTML = safe(rows1);
-    var rows2 = events.slice(0, 25).map(function(e) {
-        var fat = e.fatalities || 0;
-        return '<tr><td>' + esc(trunc(e.event_type || e.type || '?', 25)) + '</td><td class="muted">' + esc(e.country || '?') + '</td><td>' + esc(trunc(e.location || e.admin1 || '?', 25)) + '</td><td class="' + (fat > 10 ? 'sev-critical' : fat > 0 ? 'warn' : 'muted') + '">' + fat + '</td><td class="muted">' + esc(e.event_date || '\u2014') + '</td></tr>';
-    }).join('');
-    if ($('#acledBadge2')) $('#acledBadge2').textContent = badge;
-    if ($('#acledBody2')) $('#acledBody2').innerHTML = safe(rows2);
-}
-
-function updateUCDP(data) {
-    if (!data || data.error) { $('#ucdpBody').innerHTML = safe('<tr><td colspan="4" class="card-error">Unavailable</td></tr>'); return; }
-    var events = data.events || data.data || (Array.isArray(data) ? data : []);
-    $('#ucdpBadge').textContent = (data.count || events.length) + ' events';
-    var rows = events.slice(0, 25).map(function(e) {
-        var best = e.best || e.best_fatality_estimate || 0;
-        return '<tr><td>' + esc(trunc(e.dyad_name || e.side_a || '?', 30)) + '</td><td class="muted">' + esc(e.type_of_violence || '\u2014') + '</td><td class="' + (best > 10 ? 'sev-critical' : best > 0 ? 'warn' : 'muted') + '">' + best + '</td><td class="muted">' + esc(trunc(e.where_description || e.country || '?', 25)) + '</td></tr>';
-    }).join('');
-    $('#ucdpBody').innerHTML = safe(rows);
-}
-
-function updateDisplacement(data) {
-    if (!data || data.error) { return; }
-    var totals = data.global_totals || {};
-    var origins = data.by_origin || data.data || (Array.isArray(data) ? data : []);
-    var statsHtml = '<div class="stat-box"><div class="stat-value">' + fmtBigPlain(totals.total_refugees || 0) + '</div><div class="stat-label">Refugees</div></div><div class="stat-box"><div class="stat-value">' + fmtBigPlain(totals.total_idps || 0) + '</div><div class="stat-label">IDPs</div></div><div class="stat-box"><div class="stat-value">' + fmtBigPlain(totals.total_asylum_seekers || 0) + '</div><div class="stat-label">Asylum Seekers</div></div><div class="stat-box"><div class="stat-value warn">' + fmtBigPlain(totals.grand_total || 0) + '</div><div class="stat-label">Total Displaced</div></div>';
-    if ($('#displacementStats')) $('#displacementStats').innerHTML = safe(statsHtml);
-    var rows1 = (Array.isArray(origins) ? origins : []).slice(0, 10).map(function(c) {
-        return '<tr><td class="bright">' + esc(c.country_name || c.country || '?') + '</td><td>' + fmtBigPlain(c.refugees || 0) + '</td><td>' + fmtBigPlain(c.idps || 0) + '</td></tr>';
-    }).join('');
-    if ($('#displacementBody')) $('#displacementBody').innerHTML = safe(rows1);
-    if ($('#displacementStats2')) $('#displacementStats2').innerHTML = safe(statsHtml);
-    var rows2 = (Array.isArray(origins) ? origins : []).slice(0, 20).map(function(c) {
-        return '<tr><td class="bright">' + esc(c.country_name || c.country || '?') + '</td><td>' + fmtBigPlain(c.refugees || 0) + '</td><td>' + fmtBigPlain(c.asylum_seekers || 0) + '</td><td>' + fmtBigPlain(c.idps || 0) + '</td><td class="muted">' + fmtBigPlain(c.stateless || 0) + '</td></tr>';
-    }).join('');
-    if ($('#displacementBody2')) $('#displacementBody2').innerHTML = safe(rows2);
-}
-
-function updateRiskScores(data) {
-    if (!data || data.error) { return; }
-    var countries = data.countries || data.data || (Array.isArray(data) ? data : []);
-    var badge = (data.count || countries.length) + ' countries';
-    var mkRows = function(limit) {
-        return countries.slice(0, limit).map(function(c) {
-            return '<tr><td class="bright">' + esc(c.country || c.country_name || '?') + '</td><td>' + fmtNum(c.risk_score, 1) + '</td><td class="' + riskCls(c.risk_level) + '">' + esc(c.risk_level || '\u2014') + '</td><td class="muted">' + (c.events_30d || '\u2014') + '</td></tr>';
-        }).join('');
-    };
-    ['','2'].forEach(function(sfx) {
-        var b = $('#riskBadge' + sfx); if (b) b.textContent = badge;
-        var bd = $('#riskBody' + sfx); if (bd) bd.innerHTML = safe(mkRows(sfx === '' ? 10 : 15));
-    });
-}
-
-function updateSignalConvergence(data) {
-    if (!data || data.error) { return; }
-    var hotspots = data.hotspots || data.data || (Array.isArray(data) ? data : []);
-    var mkRows = function(limit) {
-        return hotspots.slice(0, limit).map(function(h) {
-            var score = h.convergence_score || 0;
-            var signals = h.signals || {};
-            var sigStr = Object.entries(signals).map(function(e) { return e[0] + ':' + e[1]; }).join(', ');
-            return '<tr><td class="bright">' + esc(h.name || '?') + '</td><td class="' + (score >= 7 ? 'sev-critical' : score >= 4 ? 'warn' : 'muted') + '">' + fmtNum(score, 1) + '</td><td class="muted">' + esc(sigStr || '\u2014') + '</td></tr>';
-        }).join('');
-    };
-    if ($('#convergenceBody')) $('#convergenceBody').innerHTML = safe(mkRows(8));
-    if ($('#convergenceBody2')) $('#convergenceBody2').innerHTML = safe(mkRows(15));
-}
-
-// Overview summary stats
-function updateOverviewStats(data) {
-    var quakeCount = 0, cyberCount = 0, conflictCount = 0, fireCount = 0, displacedTotal = 0, milCount = 0;
-    if (data.earthquakes && !data.earthquakes.error) { quakeCount = (data.earthquakes.earthquakes || data.earthquakes.features || []).length; }
-    if (data.cyber_threats && !data.cyber_threats.error) { cyberCount = (data.cyber_threats.threats || []).length; }
-    if (data.acled_events && !data.acled_events.error) { conflictCount = data.acled_events.count || 0; }
-    if (data.wildfires && !data.wildfires.error) { fireCount = data.wildfires.fire_count || data.wildfires.count || 0; }
-    if (data.displacement && !data.displacement.error && data.displacement.global_totals) { displacedTotal = data.displacement.global_totals.grand_total || 0; }
-    if (data.military_flights && !data.military_flights.error) { milCount = data.military_flights.total_military_aircraft || 0; }
-    var html = '<div class="stat-box"><div class="stat-value">' + quakeCount + '</div><div class="stat-label">Earthquakes</div></div>' +
-        '<div class="stat-box"><div class="stat-value">' + cyberCount + '</div><div class="stat-label">Cyber IOCs</div></div>' +
-        '<div class="stat-box"><div class="stat-value ' + (conflictCount > 100 ? 'warn' : '') + '">' + conflictCount + '</div><div class="stat-label">Conflict Events</div></div>' +
-        '<div class="stat-box"><div class="stat-value ' + (fireCount > 100 ? 'warn' : '') + '">' + fireCount + '</div><div class="stat-label">Wildfires</div></div>' +
-        '<div class="stat-box"><div class="stat-value">' + milCount + '</div><div class="stat-label">Mil. Aircraft</div></div>' +
-        '<div class="stat-box"><div class="stat-value warn">' + fmtBigPlain(displacedTotal) + '</div><div class="stat-label">Displaced</div></div>';
-    $('#overviewStats').innerHTML = safe(html);
-}
-
-// ========================================================================
-// Geospatial Map (Leaflet) - initialized on tab click
-// ========================================================================
-
-var map = null, mapInitialized = false;
-var mapLayers = { quakes: null, flights: null, conflict: null, convergence: null };
-var latestData = null;
-
-function initMap() {
-    if (mapInitialized) return;
-    mapInitialized = true;
-    map = L.map('geoMap', { zoomControl: true, attributionControl: false }).setView([20, 0], 2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(map);
-    mapLayers.quakes = L.layerGroup().addTo(map);
-    mapLayers.flights = L.layerGroup().addTo(map);
-    mapLayers.conflict = L.layerGroup().addTo(map);
-    mapLayers.convergence = L.layerGroup().addTo(map);
-    ['mapQuakes','mapFlights','mapConflict','mapConvergence'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('change', function() { updateMapLayers(); });
-    });
-    if (latestData) updateMapLayers();
-}
-
-function updateMapLayers() {
-    if (!map || !latestData) return;
-    var data = latestData;
+function updateMapQuakes(data) {
     mapLayers.quakes.clearLayers();
-    if (document.getElementById('mapQuakes').checked && data.earthquakes && !data.earthquakes.error) {
-        (data.earthquakes.earthquakes || data.earthquakes.features || []).slice(0, 50).forEach(function(q) {
-            var lat = q.latitude || (q.geometry && q.geometry.coordinates && q.geometry.coordinates[1]);
-            var lon = q.longitude || (q.geometry && q.geometry.coordinates && q.geometry.coordinates[0]);
-            var mag = q.magnitude || (q.properties && q.properties.mag) || 1;
-            if (lat != null && lon != null) {
-                L.circleMarker([lat, lon], { radius: Math.max(3, mag * 2.5), color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.6, weight: 1
-                }).bindPopup('<b>M' + (typeof mag === 'number' ? mag.toFixed(1) : mag) + '</b><br>' + (q.place || (q.properties && q.properties.place) || '?')).addTo(mapLayers.quakes);
-            }
+    if (!data || data.error) { $('#cntQuakes').textContent = '0'; return; }
+    var quakes = data.earthquakes || [];
+    $('#cntQuakes').textContent = quakes.length;
+    quakes.slice(0, 100).forEach(function(q) {
+        if (q.latitude == null || q.longitude == null) return;
+        var mag = q.magnitude || 1;
+        var size = Math.max(10, mag * 5);
+        var mk = L.marker([q.latitude, q.longitude], {
+            icon: L.divIcon({ className: 'mk-quake' + (mag >= 5 ? ' crit' : ''), iconSize: [size, size], iconAnchor: [size/2, size/2] })
         });
-    }
-    mapLayers.flights.clearLayers();
-    if (document.getElementById('mapFlights').checked && data.military_flights && !data.military_flights.error) {
-        (data.military_flights.flights || data.military_flights.aircraft || []).slice(0, 50).forEach(function(f) {
-            var lat = f.latitude || f.lat, lon = f.longitude || f.lon;
-            if (lat != null && lon != null) {
-                L.circleMarker([lat, lon], { radius: 4, color: '#60a5fa', fillColor: '#60a5fa', fillOpacity: 0.7, weight: 1
-                }).bindPopup('<b>' + (f.callsign || f.icao24 || '?') + '</b><br>' + (f.origin_country || '?')).addTo(mapLayers.flights);
-            }
-        });
-    }
-    mapLayers.conflict.clearLayers();
-    if (document.getElementById('mapConflict').checked && data.acled_events && !data.acled_events.error) {
-        (data.acled_events.events || []).slice(0, 50).forEach(function(e) {
-            var lat = e.latitude || e.lat, lon = e.longitude || e.lon;
-            if (lat != null && lon != null) {
-                var fat = e.fatalities || 0;
-                L.circleMarker([Number(lat), Number(lon)], { radius: Math.max(3, Math.min(10, fat / 2 + 3)), color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.5, weight: 1
-                }).bindPopup('<b>' + (e.event_type || '?') + '</b><br>' + (e.country || '') + ' - ' + fat + ' fatalities').addTo(mapLayers.conflict);
-            }
-        });
-    }
-    mapLayers.convergence.clearLayers();
-    if (document.getElementById('mapConvergence').checked && data.signal_convergence && !data.signal_convergence.error) {
-        (data.signal_convergence.hotspots || []).forEach(function(h) {
-            if (h.lat != null && h.lon != null) {
-                var score = h.convergence_score || 0;
-                L.circle([h.lat, h.lon], { radius: 200000 + score * 50000, color: '#a78bfa', fillColor: '#a78bfa', fillOpacity: 0.15, weight: 2
-                }).bindPopup('<b>' + (h.name || '?') + '</b><br>Score: ' + score.toFixed(1)).addTo(mapLayers.convergence);
-            }
-        });
-    }
-}
-
-// ========================================================================
-// Trend Charts (Chart.js) - rolling time series from SSE updates
-// ========================================================================
-
-var MAX_CHART_POINTS = 30;
-var chartData = { labels: [], quakes: [], cyber: [], military: [], conflict: [] };
-var charts = {};
-
-function initCharts() {
-    var commonOpts = {
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-            x: { display: true, ticks: { color: '#4a5568', maxRotation: 0, maxTicksLimit: 8, font: { size: 10 } }, grid: { color: '#1e293b' } },
-            y: { display: true, ticks: { color: '#4a5568', font: { size: 10 } }, grid: { color: '#1e293b' }, beginAtZero: true }
-        },
-        plugins: { legend: { display: false } }, animation: { duration: 300 }
-    };
-    charts.quakes = new Chart($('#chartQuakes'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.3, pointRadius: 2 }] }, options: commonOpts });
-    charts.cyber = new Chart($('#chartCyber'), { type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: 'rgba(245,158,11,0.6)', borderColor: '#f59e0b', borderWidth: 1 }] }, options: commonOpts });
-    charts.military = new Chart($('#chartMilitary'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.1)', fill: true, tension: 0.3, pointRadius: 2 }] }, options: commonOpts });
-    charts.conflict = new Chart($('#chartConflict'), { type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: 'rgba(167,139,250,0.6)', borderColor: '#a78bfa', borderWidth: 1 }] }, options: commonOpts });
-}
-
-function updateCharts(data) {
-    var now = new Date();
-    var label = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-    chartData.labels.push(label);
-    var qC = 0, cC = 0, mC = 0, aC = 0;
-    if (data.earthquakes && !data.earthquakes.error) { qC = (data.earthquakes.earthquakes || data.earthquakes.features || []).length; }
-    if (data.cyber_threats && !data.cyber_threats.error) { cC = (data.cyber_threats.threats || []).length; }
-    if (data.military_flights && !data.military_flights.error) { mC = data.military_flights.total_military_aircraft || 0; }
-    if (data.acled_events && !data.acled_events.error) { aC = data.acled_events.count || 0; }
-    chartData.quakes.push(qC); chartData.cyber.push(cC); chartData.military.push(mC); chartData.conflict.push(aC);
-    if (chartData.labels.length > MAX_CHART_POINTS) { chartData.labels.shift(); chartData.quakes.shift(); chartData.cyber.shift(); chartData.military.shift(); chartData.conflict.shift(); }
-    ['quakes','cyber','military','conflict'].forEach(function(k) {
-        if (charts[k]) { charts[k].data.labels = chartData.labels.slice(); charts[k].data.datasets[0].data = chartData[k].slice(); charts[k].update('none'); }
+        mk.bindTooltip('M' + (typeof mag === 'number' ? mag.toFixed(1) : mag) + ' ' + trunc(q.place || '', 25), { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        mk.on('click', function() { showDetail('earthquake', q); });
+        mk.addTo(mapLayers.quakes);
     });
 }
 
-initCharts();
+function updateMapMilitary(data) {
+    mapLayers.military.clearLayers();
+    if (!data || data.error) { $('#cntMil').textContent = '0'; return; }
+    var aircraft = data.aircraft || [];
+    $('#cntMil').textContent = data.count || aircraft.length;
+    aircraft.slice(0, 100).forEach(function(f) {
+        if (f.latitude == null || f.longitude == null) return;
+        var mk = L.marker([f.latitude, f.longitude], {
+            icon: L.divIcon({ className: 'mk-mil', iconSize: [12, 12], iconAnchor: [6, 6] })
+        });
+        mk.bindTooltip((f.callsign || f.icao24 || '?') + ' \u2014 ' + (f.origin_country || ''), { className: 'mk-tip', direction: 'top', offset: [0, -6] });
+        mk.on('click', function() { showDetail('military', f); });
+        mk.addTo(mapLayers.military);
+    });
+}
 
-// ========================================================================
-// Master update
-// ========================================================================
+function updateMapConflict(data) {
+    mapLayers.conflict.clearLayers();
+    if (!data || data.error) { $('#cntConflict').textContent = '0'; return; }
+    var events = data.events || [];
+    $('#cntConflict').textContent = data.count || events.length;
+    events.slice(0, 100).forEach(function(e) {
+        var lat = e.latitude || e.lat, lon = e.longitude || e.lon;
+        if (lat == null || lon == null) return;
+        var fat = e.fatalities || 0;
+        var size = Math.max(8, Math.min(18, fat / 2 + 8));
+        var mk = L.marker([Number(lat), Number(lon)], {
+            icon: L.divIcon({ className: 'mk-conflict', iconSize: [size, size], iconAnchor: [size/2, size/2] })
+        });
+        mk.bindTooltip((e.event_type || '?') + ' \u2014 ' + (e.country || '') + (fat > 0 ? ' (' + fat + ' fatal)' : ''), { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        mk.on('click', function() { showDetail('conflict', e); });
+        mk.addTo(mapLayers.conflict);
+    });
+}
+
+function updateMapFires(data) {
+    mapLayers.fires.clearLayers();
+    if (!data || data.error) { $('#cntFires').textContent = '0'; return; }
+    var regions = data.fires_by_region || {};
+    var total = 0;
+    for (var rName in regions) {
+        if (!regions.hasOwnProperty(rName)) continue;
+        var r = regions[rName];
+        total += r.count || 0;
+        var clusters = r.top_clusters || [];
+        clusters.forEach(function(c) {
+            if (c.lat == null || c.lon == null) return;
+            var size = Math.max(8, Math.min(20, c.fire_count / 3 + 6));
+            var obj = { lat: c.lat, lon: c.lon, fire_count: c.fire_count, max_frp: c.max_frp, _region: rName };
+            var mk = L.marker([c.lat, c.lon], {
+                icon: L.divIcon({ className: 'mk-fire', iconSize: [size, size], iconAnchor: [size/2, size/2] })
+            });
+            mk.bindTooltip(c.fire_count + ' fires \u2014 ' + rName, { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+            mk.on('click', function() { showDetail('fire', obj); });
+            mk.addTo(mapLayers.fires);
+        });
+    }
+    $('#cntFires').textContent = data.total_fires || total;
+}
+
+function updateMapConvergence(data) {
+    mapLayers.convergence.clearLayers();
+    if (!data || data.error) { $('#cntConv').textContent = '0'; return; }
+    var hotspots = data.hotspots || [];
+    $('#cntConv').textContent = hotspots.length;
+    hotspots.forEach(function(h) {
+        if (h.lat == null || h.lon == null) return;
+        var score = h.convergence_score || 0;
+        var size = 28 + score * 8;
+        var mk = L.marker([h.lat, h.lon], {
+            icon: L.divIcon({ className: 'mk-conv', iconSize: [size, size], iconAnchor: [size/2, size/2] })
+        });
+        mk.bindTooltip((h.name || '?') + ' \u2014 Score ' + score.toFixed(1), { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        mk.on('click', function() { showDetail('convergence', h); });
+        mk.addTo(mapLayers.convergence);
+    });
+}
+
+// ════════════ TOP BAR STATS ════════════
+
+function updateHudStats(data) {
+    var pills = [];
+    if (data.earthquakes && !data.earthquakes.error) {
+        var qc = (data.earthquakes.earthquakes || []).length;
+        pills.push('<div class="stat-pill"><span class="v">' + qc + '</span><span class="l">Quakes</span></div>');
+    }
+    if (data.military_flights && !data.military_flights.error) {
+        pills.push('<div class="stat-pill"><span class="v">' + (data.military_flights.count || 0) + '</span><span class="l">Aircraft</span></div>');
+    }
+    if (data.acled_events && !data.acled_events.error) {
+        var ac = data.acled_events.count || 0;
+        pills.push('<div class="stat-pill"><span class="v' + (ac > 100 ? ' warn' : '') + '">' + ac + '</span><span class="l">Conflict</span></div>');
+    }
+    if (data.cyber_threats && !data.cyber_threats.error) {
+        pills.push('<div class="stat-pill"><span class="v">' + ((data.cyber_threats.threats || []).length) + '</span><span class="l">Cyber IOC</span></div>');
+    }
+    if (data.wildfires && !data.wildfires.error) {
+        var fc = data.wildfires.total_fires || 0;
+        pills.push('<div class="stat-pill"><span class="v' + (fc > 500 ? ' crit' : fc > 100 ? ' warn' : '') + '">' + fc + '</span><span class="l">Fires</span></div>');
+    }
+    if (data.displacement && !data.displacement.error && data.displacement.global_totals) {
+        pills.push('<div class="stat-pill"><span class="v warn">' + fmtBigPlain(data.displacement.global_totals.grand_total || 0) + '</span><span class="l">Displaced</span></div>');
+    }
+    $('#hudStats').innerHTML = safe(pills.join(''));
+}
+
+// ════════════ DATA DRAWER ════════════
+
+function updateDrawer(data) {
+    var h = '';
+
+    // ── MARKETS ──
+    h += '<div class="sh">MARKETS</div>';
+    if (data.market_quotes && !data.market_quotes.error) {
+        var quotes = data.market_quotes.quotes || data.market_quotes.data || [];
+        if (quotes.length) {
+            h += '<div class="sub">Equity Indices</div><table class="dtable"><thead><tr><th>Sym</th><th>Price</th><th>%</th></tr></thead><tbody>';
+            quotes.slice(0, 10).forEach(function(q) {
+                var pct = q.change_pct || q.regularMarketChangePercent || 0;
+                h += '<tr><td class="bright">' + esc(q.symbol || '?') + '</td><td>' + fmtNum(q.price || q.regularMarketPrice || 0) + '</td><td class="' + cls(pct) + '">' + fmtPct(pct) + '%</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.crypto_quotes && !data.crypto_quotes.error) {
+        var coins = data.crypto_quotes.coins || data.crypto_quotes.data || [];
+        if (coins.length) {
+            h += '<div class="sub">Crypto</div><table class="dtable"><thead><tr><th>Coin</th><th>Price</th><th>24h</th></tr></thead><tbody>';
+            coins.slice(0, 10).forEach(function(c) {
+                var chg = c.price_change_percentage_24h || c.change_24h || 0;
+                h += '<tr><td class="bright">' + esc((c.symbol || c.id || '?').toUpperCase()) + '</td><td>$' + fmtNum(c.current_price || c.price || 0) + '</td><td class="' + cls(chg) + '">' + fmtPct(chg) + '%</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.stablecoin_status && !data.stablecoin_status.error) {
+        var sc = data.stablecoin_status.stablecoins || [];
+        if (sc.length) {
+            h += '<div class="sub">Stablecoin Peg</div><table class="dtable"><thead><tr><th>Coin</th><th>$</th><th>Dev</th><th></th></tr></thead><tbody>';
+            sc.forEach(function(s) {
+                var dep = s.is_depegged;
+                h += '<tr><td class="bright">' + esc((s.id || '?').toUpperCase()) + '</td><td>' + fmtNum(s.price, 4) + '</td><td class="' + ((s.peg_deviation_pct || 0) > 0.5 ? 'warn' : 'dim') + '">' + fmtNum(s.peg_deviation_pct || 0, 3) + '%</td><td class="' + (dep ? 'down' : 'up') + '">' + (dep ? 'DEPEG' : 'OK') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.sector_heatmap && !data.sector_heatmap.error) {
+        var secs = data.sector_heatmap.sectors || data.sector_heatmap.data || [];
+        if (secs.length) {
+            h += '<div class="sub">Sector Performance</div><div class="heatmap">';
+            secs.forEach(function(s) {
+                var pct = s.change_pct || 0;
+                var bg = pct >= 1 ? '#166534' : pct >= 0 ? '#1a2e1a' : pct >= -1 ? '#2e1a1a' : '#7f1d1d';
+                var fg = pct >= 0 ? '#86efac' : '#fca5a5';
+                h += '<div class="hm" style="background:' + bg + ';color:' + fg + '">' + esc(s.symbol || s.name || '?') + '<br>' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%</div>';
+            });
+            h += '</div>';
+        }
+    }
+    if (data.macro_signals && !data.macro_signals.error) {
+        var signals = data.macro_signals.signals || data.macro_signals;
+        if (typeof signals === 'object' && !Array.isArray(signals)) {
+            h += '<div class="sub">Macro Signals</div><div class="mini-row">';
+            var mc = 0;
+            for (var mn in signals) {
+                if (!signals.hasOwnProperty(mn) || mc >= 4) break;
+                var info = signals[mn];
+                var val = typeof info === 'object' && !Array.isArray(info) ? Object.values(info)[0] : info;
+                h += '<div class="mini-box"><div class="v">' + (typeof val === 'number' ? fmtNum(val, val < 1 ? 4 : 2) : esc(String(val || '\u2014'))) + '</div><div class="l">' + esc(mn.replace(/_/g, ' ')) + '</div></div>';
+                mc++;
+            }
+            h += '</div>';
+        }
+    }
+    if (data.energy_prices && !data.energy_prices.error) {
+        var prices = data.energy_prices.prices || data.energy_prices.data || data.energy_prices;
+        var entries = Array.isArray(prices) ? prices : Object.entries(prices).map(function(e) { return Object.assign({name: e[0]}, typeof e[1] === 'object' ? e[1] : {value: e[1]}); });
+        if (entries.length) {
+            h += '<div class="sub">Energy</div><table class="dtable"><tbody>';
+            entries.slice(0, 6).forEach(function(item) {
+                var v = item.value || item.price || item.last_value;
+                h += '<tr><td>' + esc((item.name || '?').replace(/_/g, ' ')) + '</td><td class="bright">' + (typeof v === 'number' ? fmtNum(v) : esc(String(v || '\u2014'))) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.etf_flows && !data.etf_flows.error) {
+        var etfs = data.etf_flows.etfs || data.etf_flows.data || [];
+        if (etfs.length) {
+            h += '<div class="sub">ETF Flows</div><table class="dtable"><thead><tr><th>ETF</th><th>$</th><th>%</th><th>Vol</th></tr></thead><tbody>';
+            etfs.slice(0, 8).forEach(function(e) {
+                h += '<tr><td class="bright">' + esc(e.symbol || '?') + '</td><td>' + fmtNum(e.price) + '</td><td class="' + cls(e.change_pct) + '">' + fmtPct(e.change_pct) + '%</td><td class="dim">' + fmtBigPlain(e.volume) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+
+    // ── SECURITY ──
+    h += '<div class="sh">SECURITY</div>';
+    if (data.cyber_threats && !data.cyber_threats.error) {
+        var threats = data.cyber_threats.threats || [];
+        var bySev = data.cyber_threats.by_severity || {};
+        h += '<div class="mini-row">';
+        h += '<div class="mini-box"><div class="v" style="color:var(--red)">' + (bySev.critical || 0) + '</div><div class="l">Critical</div></div>';
+        h += '<div class="mini-box"><div class="v" style="color:var(--amber)">' + (bySev.high || 0) + '</div><div class="l">High</div></div>';
+        h += '<div class="mini-box"><div class="v">' + (bySev.medium || 0) + '</div><div class="l">Medium</div></div>';
+        h += '</div>';
+        h += '<table class="dtable"><thead><tr><th>IOC</th><th>Type</th><th>Sev</th></tr></thead><tbody>';
+        threats.slice(0, 15).forEach(function(t) {
+            var sev = (t.severity || '').toLowerCase();
+            var sc = sev === 'critical' ? 'down' : sev === 'high' ? 'warn' : 'dim';
+            h += '<tr><td>' + esc(trunc(t.indicator || t.url || t.ioc || '?', 30)) + '</td><td class="dim">' + esc(t.threat_type || t.type || '\u2014') + '</td><td class="' + sc + '">' + esc(t.severity || '\u2014') + '</td></tr>';
+        });
+        h += '</tbody></table>';
+    }
+    if (data.internet_outages && !data.internet_outages.error) {
+        var outages = data.internet_outages.outages || [];
+        var oc = data.internet_outages.ongoing_count || outages.length;
+        h += '<div class="sub">Infrastructure</div>';
+        h += '<div class="mini-row"><div class="mini-box"><div class="v' + (oc > 0 ? ' warn' : '') + '">' + oc + '</div><div class="l">Outages</div></div>';
+        if (data.cable_health && !data.cable_health.error) {
+            var cs = data.cable_health.health_score || data.cable_health.overall_score;
+            h += '<div class="mini-box"><div class="v">' + (cs != null ? cs + '%' : '\u2014') + '</div><div class="l">Cable Health</div></div>';
+        }
+        h += '</div>';
+    }
+    if (data.airport_delays && !data.airport_delays.error) {
+        var delays = data.airport_delays.delays || [];
+        if (delays.length) {
+            h += '<div class="sub">Airport Delays</div><table class="dtable"><thead><tr><th>Airport</th><th>Reason</th></tr></thead><tbody>';
+            delays.slice(0, 8).forEach(function(d) {
+                h += '<tr><td class="bright">' + esc(d.airport || d.iata || '?') + '</td><td class="dim">' + esc(trunc(d.reason || d.type || '\u2014', 30)) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.nav_warnings && !data.nav_warnings.error) {
+        var navs = data.nav_warnings.warnings || [];
+        if (navs.length) {
+            h += '<div class="sub">Nav Warnings (' + navs.length + ')</div><table class="dtable"><thead><tr><th>Area</th><th>Warning</th></tr></thead><tbody>';
+            navs.slice(0, 8).forEach(function(w) {
+                h += '<tr><td class="bright">' + esc(w.navArea || w.area || '?') + '</td><td class="dim">' + esc(trunc(w.text || w.description || '\u2014', 40)) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.risk_scores && !data.risk_scores.error) {
+        var countries = data.risk_scores.countries || [];
+        if (countries.length) {
+            h += '<div class="sub">Risk Scores</div><table class="dtable"><thead><tr><th>Country</th><th>Score</th><th>Level</th></tr></thead><tbody>';
+            countries.slice(0, 10).forEach(function(c) {
+                var rl = (c.risk_level || '').toLowerCase();
+                var rc = rl === 'extreme' || rl === 'critical' ? 'down' : rl === 'high' ? 'warn' : rl === 'elevated' ? 'warn' : 'dim';
+                h += '<tr><td class="bright">' + esc(c.country || '?') + '</td><td>' + fmtNum(c.risk_score, 1) + '</td><td class="' + rc + '">' + esc(c.risk_level || '\u2014') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+
+    // ── INTELLIGENCE ──
+    h += '<div class="sh">INTELLIGENCE</div>';
+    if (data.trending_keywords && !data.trending_keywords.error) {
+        var kws = data.trending_keywords.keywords || data.trending_keywords.data || [];
+        if (kws.length) {
+            h += '<div class="sub">Trending</div><div class="tags">';
+            kws.slice(0, 20).forEach(function(k) {
+                var word = typeof k === 'string' ? k : (k.keyword || k.word || k.term || '?');
+                var cnt = typeof k === 'object' ? (k.count || k.frequency || 0) : 0;
+                h += '<span class="tag' + (cnt > 5 ? ' tag-hot' : '') + '">' + esc(word) + (cnt ? ' (' + cnt + ')' : '') + '</span>';
+            });
+            h += '</div>';
+        }
+    }
+    if (data.prediction_markets && !data.prediction_markets.error) {
+        var mkts = data.prediction_markets.markets || [];
+        if (mkts.length) {
+            h += '<div class="sub">Prediction Markets</div><table class="dtable"><thead><tr><th>Market</th><th>Prob</th><th>Vol</th></tr></thead><tbody>';
+            mkts.slice(0, 10).forEach(function(m) {
+                var prob = m.probability || m.yes_price;
+                h += '<tr><td>' + esc(trunc(m.question || m.title || '?', 35)) + '</td><td class="bright">' + (prob != null ? (typeof prob === 'number' ? (prob * 100).toFixed(0) + '%' : esc(String(prob))) : '\u2014') + '</td><td class="dim">' + fmtBig(m.volume || 0) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.ucdp_events && !data.ucdp_events.error) {
+        var ucdp = data.ucdp_events.events || [];
+        if (ucdp.length) {
+            h += '<div class="sub">UCDP Events (' + (data.ucdp_events.count || ucdp.length) + ')</div><table class="dtable"><thead><tr><th>Conflict</th><th>Deaths</th></tr></thead><tbody>';
+            ucdp.slice(0, 10).forEach(function(e) {
+                var best = e.best || e.best_fatality_estimate || 0;
+                h += '<tr><td>' + esc(trunc(e.dyad_name || e.side_a || '?', 30)) + '</td><td class="' + (best > 10 ? 'down' : best > 0 ? 'warn' : 'dim') + '">' + best + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.displacement && !data.displacement.error) {
+        var totals = data.displacement.global_totals || {};
+        h += '<div class="sub">Global Displacement</div><div class="mini-row">';
+        h += '<div class="mini-box"><div class="v">' + fmtBigPlain(totals.total_refugees || 0) + '</div><div class="l">Refugees</div></div>';
+        h += '<div class="mini-box"><div class="v">' + fmtBigPlain(totals.total_idps || 0) + '</div><div class="l">IDPs</div></div>';
+        h += '<div class="mini-box"><div class="v warn">' + fmtBigPlain(totals.grand_total || 0) + '</div><div class="l">Total</div></div>';
+        h += '</div>';
+        var origins = data.displacement.by_origin || [];
+        if (origins.length) {
+            h += '<table class="dtable"><thead><tr><th>Origin</th><th>Refugees</th><th>IDPs</th></tr></thead><tbody>';
+            origins.slice(0, 8).forEach(function(o) {
+                h += '<tr><td class="bright">' + esc(o.country_name || o.country || '?') + '</td><td>' + fmtBigPlain(o.refugees || 0) + '</td><td>' + fmtBigPlain(o.idps || 0) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.signal_convergence && !data.signal_convergence.error) {
+        var hs = data.signal_convergence.hotspots || [];
+        if (hs.length) {
+            h += '<div class="sub">Signal Convergence</div><table class="dtable"><thead><tr><th>Region</th><th>Score</th><th>Signals</th></tr></thead><tbody>';
+            hs.slice(0, 10).forEach(function(hp) {
+                var score = hp.convergence_score || 0;
+                var sigs = hp.signals || {};
+                var sigStr = Object.entries(sigs).map(function(e) { return e[0] + ':' + e[1]; }).join(', ');
+                h += '<tr><td class="bright">' + esc(hp.name || '?') + '</td><td class="' + (score >= 7 ? 'down' : score >= 4 ? 'warn' : 'dim') + '">' + fmtNum(score, 1) + '</td><td class="dim">' + esc(trunc(sigStr, 25)) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    if (data.climate_anomalies && !data.climate_anomalies.error) {
+        var src = data.climate_anomalies.anomalies || data.climate_anomalies.zones || data.climate_anomalies.data || [];
+        var anomalies = Array.isArray(src) ? src : (typeof src === 'object' ? Object.values(src) : []);
+        if (anomalies.length) {
+            h += '<div class="sub">Climate Anomalies</div><table class="dtable"><thead><tr><th>Zone</th><th>Temp</th><th>Precip</th></tr></thead><tbody>';
+            anomalies.slice(0, 8).forEach(function(a) {
+                var temp = a.temperature_anomaly || a.temp_anomaly || a.temp_deviation;
+                var precip = a.precipitation_anomaly || a.precip_anomaly || a.precip_deviation;
+                h += '<tr><td>' + esc(a.zone || a.name || a.region || '?') + '</td><td class="' + (temp > 0 ? 'warn' : 'up') + '">' + (temp != null ? (temp > 0 ? '+' : '') + fmtNum(temp, 1) + '\u00B0C' : '\u2014') + '</td><td class="dim">' + (precip != null ? fmtNum(precip, 1) + 'mm' : '\u2014') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+
+    $('#drawerBody').innerHTML = safe(h);
+}
+
+// ════════════ NEWS TICKER ════════════
+
+function updateTicker(data) {
+    if (!data.news_feed || data.news_feed.error) return;
+    var articles = data.news_feed.articles || data.news_feed.items || [];
+    if (!articles.length) return;
+    var items = articles.slice(0, 30).map(function(a) {
+        return '<span class="ticker-item">' + esc(trunc(a.title || '?', 70)) + '<span class="src">' + esc(a.source || a.feed || '') + '</span></span>';
+    });
+    // Duplicate for seamless loop
+    var all = items.join('<span class="ticker-item sep">\u2022</span>');
+    var doubled = all + '<span class="ticker-item sep">\u2022</span>' + all;
+    // Adjust speed based on content length
+    var dur = Math.max(40, articles.length * 4);
+    $('#tickerContent').style.setProperty('--ticker-dur', dur + 's');
+    $('#tickerContent').innerHTML = safe(doubled);
+}
+
+// ════════════ MASTER UPDATE ════════════
 
 function updateAll(data) {
     latestData = data;
-    updateOverviewStats(data);
-    updateEquity(data.market_quotes);
-    updateCrypto(data.crypto_quotes);
-    updateStablecoins(data.stablecoin_status);
-    updateMacro(data.macro_signals);
-    updateSectorHeatmap(data.sector_heatmap);
-    updateEnergy(data.energy_prices);
-    updateETF(data.etf_flows);
-    updateCyber(data.cyber_threats);
-    updateMilitary(data.military_flights);
-    updateInfra(data.internet_outages, data.cable_health);
-    updateAviation(data.airport_delays);
-    updateNavWarnings(data.nav_warnings);
-    updateRiskScores(data.risk_scores);
-    updateACLED(data.acled_events);
-    updateUCDP(data.ucdp_events);
-    updateDisplacement(data.displacement);
-    updateSignalConvergence(data.signal_convergence);
-    updateNatural(data.earthquakes, data.wildfires);
-    updateClimate(data.climate_anomalies);
-    updateNews(data.news_feed, data.trending_keywords);
-    updatePredictions(data.prediction_markets);
-    if (mapInitialized) updateMapLayers();
-    updateCharts(data);
+
+    // Map layers
+    updateMapQuakes(data.earthquakes);
+    updateMapMilitary(data.military_flights);
+    updateMapConflict(data.acled_events);
+    updateMapFires(data.wildfires);
+    updateMapConvergence(data.signal_convergence);
+
+    // HUD
+    updateHudStats(data);
+
+    // Drawer
+    updateDrawer(data);
+
+    // Ticker
+    updateTicker(data);
+
+    // Feed health
     var feedKeys = Object.keys(data).filter(function(k) { return k !== 'source_health' && k !== 'cache_stats' && k !== 'timestamp'; });
     var okCount = feedKeys.filter(function(k) { return data[k] && !data[k].error; }).length;
     $('#feedCount').textContent = okCount + '/' + feedKeys.length + ' feeds';
+
     if (data.timestamp) { $('#lastUpdate').textContent = new Date(data.timestamp).toLocaleTimeString(); }
 }
 
-// ========================================================================
-// SSE connection with exponential backoff
-// ========================================================================
+// ════════════ SSE CONNECTION ════════════
 
 var reconnectDelay = 1000;
 function connectSSE() {
     var source = new EventSource('/api/stream');
-    source.onopen = function() { $('#connDot').className = 'status-dot dot-green pulse'; $('#connLabel').textContent = 'Live'; reconnectDelay = 1000; };
+    source.onopen = function() {
+        $('#connDot').className = 'conn-dot';
+        $('#connLabel').textContent = 'LIVE';
+        reconnectDelay = 1000;
+    };
     source.onmessage = function(event) {
         try {
             var data = JSON.parse(event.data);
-            if (data.error && !data.market_quotes) { return; }
+            if (data.error && !data.market_quotes) return;
             updateAll(data);
-            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('loading').classList.add('gone');
         } catch (e) { console.error('Parse error:', e); }
     };
-    source.onerror = function() { source.close(); $('#connDot').className = 'status-dot dot-red'; $('#connLabel').textContent = 'Reconnecting...'; setTimeout(connectSSE, reconnectDelay); reconnectDelay = Math.min(reconnectDelay * 2, 30000); };
+    source.onerror = function() {
+        source.close();
+        $('#connDot').className = 'conn-dot err';
+        $('#connLabel').textContent = 'RECONNECTING';
+        setTimeout(connectSSE, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+    };
 }
+
+// ════════════ BOOT ════════════
+initMap();
 connectSSE();
 </script>
 </body>
