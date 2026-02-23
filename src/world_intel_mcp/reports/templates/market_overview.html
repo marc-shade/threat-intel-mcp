@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — {{ generated_at[:10] }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 2rem; color: #f8fafc; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.4rem; color: #94a3b8; margin: 2rem 0 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+        .meta { color: #64748b; margin-bottom: 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .card { background: #1e293b; border-radius: 8px; padding: 1.5rem; border: 1px solid #334155; }
+        .card h3 { color: #f1f5f9; margin-bottom: 1rem; font-size: 1.1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+        td { color: #cbd5e1; }
+        .severity-critical { color: #ef4444; font-weight: bold; }
+        .severity-high { color: #f59e0b; }
+        .severity-medium { color: #6b7280; }
+        .up { color: #22c55e; }
+        .down { color: #ef4444; }
+        .chart-container { position: relative; height: 250px; margin: 1rem 0; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; background: #334155; }
+        .empty { color: #64748b; font-style: italic; padding: 1rem 0; }
+        .stat-row { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .stat-box { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1.2rem; text-align: center; flex: 1; min-width: 140px; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #f8fafc; }
+        .stat-label { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; }
+        .heatmap-cell { display: inline-block; padding: 6px 10px; margin: 3px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; min-width: 80px; text-align: center; }
+        footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #334155; color: #64748b; font-size: 0.85rem; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>{{ title }}</h1>
+    <p class="meta">Generated: {{ generated_at }} | Phoenix AGI System</p>
+
+    <!-- Equity Quotes -->
+    <h2>Equity &amp; Index Quotes</h2>
+    {% if quotes %}
+    <div class="card">
+        <table>
+            <tr><th>Symbol</th><th>Name</th><th>Price</th><th>Change</th><th>% Change</th><th>Volume</th></tr>
+            {% for q in quotes %}
+            <tr>
+                <td style="font-weight:600;">{{ q.symbol|default('—') }}</td>
+                <td>{{ q.name|default(q.shortName|default('')) }}</td>
+                <td>{{ "%.2f"|format(q.price or q.regularMarketPrice or 0) }}</td>
+                <td class="{{ 'up' if (q.change or q.regularMarketChange or 0) >= 0 else 'down' }}">
+                    {{ "%+.2f"|format(q.change or q.regularMarketChange or 0) }}
+                </td>
+                <td class="{{ 'up' if (q.change_pct or q.regularMarketChangePercent or 0) >= 0 else 'down' }}">
+                    {{ "%+.2f"|format(q.change_pct or q.regularMarketChangePercent or 0) }}%
+                </td>
+                <td>{{ "{:,}".format((q.volume or q.regularMarketVolume or 0)|int) }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% else %}
+    <p class="empty">No equity quote data available.</p>
+    {% endif %}
+
+    <!-- Sector Heatmap -->
+    <h2>Sector Performance</h2>
+    {% if sector_heatmap %}
+    <div class="grid">
+        <div class="card" style="grid-column: 1 / -1;">
+            <h3>Sector Heatmap</h3>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:1.5rem;">
+                {% for s in sector_heatmap %}
+                {% set pct = s.change_pct|default(0) %}
+                {% if pct >= 2 %}
+                    {% set bg = '#166534' %}
+                {% elif pct >= 0.5 %}
+                    {% set bg = '#14532d' %}
+                {% elif pct >= 0 %}
+                    {% set bg = '#1a2e1a' %}
+                {% elif pct >= -0.5 %}
+                    {% set bg = '#2e1a1a' %}
+                {% elif pct >= -2 %}
+                    {% set bg = '#7f1d1d' %}
+                {% else %}
+                    {% set bg = '#991b1b' %}
+                {% endif %}
+                <div class="heatmap-cell" style="background:{{ bg }};color:{{ '#86efac' if pct >= 0 else '#fca5a5' }};">
+                    {{ s.symbol|default(s.name|default('?')) }}<br>{{ "%+.1f"|format(pct) }}%
+                </div>
+                {% endfor %}
+            </div>
+
+            <h3>Sector Bar Chart</h3>
+            <div class="chart-container" style="height:300px;">
+                <canvas id="sectorChart"></canvas>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="empty">No sector data available.</p>
+    {% endif %}
+
+    <!-- Cryptocurrency -->
+    <h2>Cryptocurrency</h2>
+    {% if crypto %}
+    <div class="card">
+        <table>
+            <tr><th>Coin</th><th>Price (USD)</th><th>24h Change</th><th>Market Cap</th><th>24h Volume</th></tr>
+            {% for c in crypto[:15] %}
+            <tr>
+                <td style="font-weight:600;">{{ c.symbol|default(c.id|default(''))|upper }}{% if c.name %} <span style="color:#64748b;font-weight:normal;">{{ c.name }}</span>{% endif %}</td>
+                <td>{{ "${:,.2f}".format(c.current_price|default(c.price|default(0))) }}</td>
+                <td class="{{ 'up' if (c.price_change_percentage_24h|default(c.change_24h|default(0))) >= 0 else 'down' }}">
+                    {{ "%+.2f"|format(c.price_change_percentage_24h|default(c.change_24h|default(0))) }}%
+                </td>
+                <td>
+                    {% set mcap = c.market_cap|default(0) %}
+                    {% if mcap >= 1e12 %}${{ "%.1f"|format(mcap / 1e12) }}T
+                    {% elif mcap >= 1e9 %}${{ "%.1f"|format(mcap / 1e9) }}B
+                    {% elif mcap >= 1e6 %}${{ "%.1f"|format(mcap / 1e6) }}M
+                    {% elif mcap > 0 %}${{ "{:,.0f}".format(mcap) }}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% set vol = c.total_volume|default(c.volume_24h|default(0)) %}
+                    {% if vol >= 1e9 %}${{ "%.1f"|format(vol / 1e9) }}B
+                    {% elif vol >= 1e6 %}${{ "%.1f"|format(vol / 1e6) }}M
+                    {% elif vol > 0 %}${{ "{:,.0f}".format(vol) }}
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% else %}
+    <p class="empty">No cryptocurrency data available.</p>
+    {% endif %}
+
+    <!-- Macro Signals -->
+    <h2>Macro Signals</h2>
+    {% if macro_signals %}
+    <div class="grid">
+        {% for name, info in macro_signals.items() %}
+        <div class="card">
+            <h3>{{ name }}</h3>
+            {% if info is mapping %}
+            <table>
+                {% for key, val in info.items() %}
+                <tr>
+                    <td>{{ key.replace('_', ' ')|title }}</td>
+                    <td>
+                        {% if val is number %}
+                            {% if val >= 1e9 %}{{ "%.2f"|format(val / 1e9) }}B
+                            {% elif val >= 1e6 %}{{ "%.2f"|format(val / 1e6) }}M
+                            {% else %}{{ "%.4f"|format(val) if val < 1 and val > -1 else "%.2f"|format(val) }}{% endif %}
+                        {% elif val is not none %}{{ val }}
+                        {% else %}<span style="color:#64748b">N/A</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% elif info is not none %}
+            <p style="font-size:1.5rem;font-weight:bold;color:#f8fafc;">{{ info }}</p>
+            {% else %}
+            <p class="empty">N/A</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">No macro signal data available.</p>
+    {% endif %}
+
+    <!-- ETF Flows -->
+    <h2>ETF Flows</h2>
+    {% if etf_flows %}
+    <div class="card">
+        {% if etf_flows is mapping %}
+        <table>
+            <tr><th>ETF / Category</th><th>Flow</th><th>Details</th></tr>
+            {% for name, data in etf_flows.items() %}
+            <tr>
+                <td style="font-weight:600;">{{ name }}</td>
+                {% if data is mapping %}
+                <td class="{{ 'up' if (data.flow|default(data.net_flow|default(0))) >= 0 else 'down' }}">
+                    {% set flow = data.flow|default(data.net_flow|default(0)) %}
+                    {% if flow >= 1e9 %}${{ "%+.1f"|format(flow / 1e9) }}B
+                    {% elif flow >= 1e6 %}${{ "%+.1f"|format(flow / 1e6) }}M
+                    {% else %}{{ "%+.2f"|format(flow) }}{% endif %}
+                </td>
+                <td>{{ data.description|default(data.period|default('')) }}</td>
+                {% else %}
+                <td>{{ data }}</td>
+                <td></td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+        {% elif etf_flows is iterable and etf_flows is not string %}
+        <table>
+            <tr><th>ETF</th><th>Flow</th></tr>
+            {% for item in etf_flows %}
+            <tr>
+                <td>{{ item.name|default(item.symbol|default('')) }}</td>
+                <td>{{ item.flow|default(item.value|default('')) }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>{{ etf_flows }}</p>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="empty">No ETF flow data available.</p>
+    {% endif %}
+
+    <footer>Phoenix AGI System &mdash; Market Overview &mdash; {{ generated_at[:10] }}</footer>
+</div>
+
+<script>
+// Bar Chart: Sector Performance
+{% if sector_heatmap %}
+(function() {
+    var sectors = {{ sector_heatmap|tojson }};
+    var labels = sectors.map(function(s) { return s.name || s.symbol || '?'; });
+    var values = sectors.map(function(s) { return s.change_pct || 0; });
+    var colors = values.map(function(v) { return v >= 0 ? '#22c55e' : '#ef4444'; });
+
+    new Chart(document.getElementById('sectorChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Change %',
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors.map(function(c) { return c === '#22c55e' ? '#16a34a' : '#dc2626'; }),
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: function(v) { return v + '%'; }
+                    },
+                    grid: { color: '#334155' }
+                },
+                y: {
+                    ticks: { color: '#cbd5e1', font: { size: 11 } },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) { return ctx.parsed.x.toFixed(2) + '%'; }
+                    }
+                }
+            }
+        }
+    });
+})();
+{% endif %}
+</script>
+</body>
+</html>
