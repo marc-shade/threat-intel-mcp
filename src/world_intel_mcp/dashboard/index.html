@@ -505,7 +505,8 @@ function updateAviation(data) {
 
 function updateClimate(data) {
     if (!data || data.error) { $('#climateContent').innerHTML = safe('<div class="card-error">Unavailable</div>'); return; }
-    var anomalies = data.anomalies || data.zones || data.data || (Array.isArray(data) ? data : []);
+    var src = data.anomalies || data.zones || data.data || (Array.isArray(data) ? data : []);
+    var anomalies = Array.isArray(src) ? src : (typeof src === 'object' ? Object.values(src) : []);
     if (anomalies.length === 0) { $('#climateContent').innerHTML = safe('<div class="card-error">No anomalies detected</div>'); return; }
     var html = '<table><thead><tr><th>Zone</th><th>Temp</th><th>Precip</th></tr></thead><tbody>';
     anomalies.slice(0, 15).forEach(function(a) {
