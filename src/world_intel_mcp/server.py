@@ -15,6 +15,7 @@ Phase 5: Analysis — focal points, signal summary, temporal anomalies, CII v2 (
 Phase 6: Military & infrastructure intelligence (+6 = 45 tools).
 Phase 7: Health, sanctions, elections, shipping, social, nuclear, alerts, trends (+10 = 55 tools).
 Phase 8: Service status monitoring, RSS expansion (80+ feeds, 14 categories) (+1 = 56 tools).
+Phase 9: Geospatial datasets — military bases, ports, pipelines, nuclear facilities (+4 = 60 tools).
 """
 
 import asyncio
@@ -30,7 +31,7 @@ from mcp.types import Tool, TextContent
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status
+from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial
 from .reports import generator as report_gen
 
 logging.basicConfig(
@@ -586,6 +587,54 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- Geospatial Datasets (4 tools) ---
+    Tool(
+        name="intel_military_bases",
+        description="Query 120+ military bases worldwide from 9 operators (USA, Russia, China, UK, France, NATO, India, Turkey, Israel, Iran, UAE). Filterable by operator, host country, base type, branch.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "operator": {"type": "string", "description": "Filter by operating country (USA, RUS, CHN, GBR, FRA, NATO, IND, TUR, ISR, IRN, ARE)"},
+                "country": {"type": "string", "description": "Filter by host country name or ISO-3 code"},
+                "base_type": {"type": "string", "description": "Filter by type: air_base, naval_base, army_base, marine_base, training, space_base, missile_defense, expeditionary"},
+                "branch": {"type": "string", "description": "Filter by branch (USAF, US Navy, PLA Navy, RAF, etc.)"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_strategic_ports",
+        description="Query 40+ strategic ports worldwide: container mega-ports, oil/LNG terminals, naval bases, bulk ports. Filterable by type and country.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port_type": {"type": "string", "description": "Filter by type: container, oil, lng, naval, bulk, mixed"},
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_pipelines",
+        description="Query 25+ strategic oil, gas, and hydrogen pipelines with routes, capacity, and status. Includes Nord Stream, Druzhba, Power of Siberia, BTC, TAPS, etc.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "pipeline_type": {"type": "string", "description": "Filter by type: oil, gas, hydrogen"},
+                "status": {"type": "string", "description": "Filter by status: active, destroyed, proposed, stalled, reduced, cancelled, construction, intermittent, terminated"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_nuclear_facilities",
+        description="Query 25+ nuclear power plants, enrichment sites, research reactors, and reprocessing facilities worldwide. Includes Zaporizhzhia, Natanz, Fordow, Yongbyon, etc.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "facility_type": {"type": "string", "description": "Filter by type: power, enrichment, research, reprocessing, decommissioned"},
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "status": {"type": "string", "description": "Filter by status: operational, construction, shutdown, occupied, commissioning, decommissioning, exclusion_zone"},
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
@@ -828,6 +877,31 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 fetcher, provider=arguments.get("provider"),
             )
 
+        # Geospatial datasets
+        case "intel_military_bases":
+            return await geospatial.fetch_military_bases(
+                operator=arguments.get("operator"),
+                country=arguments.get("country"),
+                base_type=arguments.get("base_type"),
+                branch=arguments.get("branch"),
+            )
+        case "intel_strategic_ports":
+            return await geospatial.fetch_strategic_ports(
+                port_type=arguments.get("port_type"),
+                country=arguments.get("country"),
+            )
+        case "intel_pipelines":
+            return await geospatial.fetch_pipelines(
+                pipeline_type=arguments.get("pipeline_type"),
+                status=arguments.get("status"),
+            )
+        case "intel_nuclear_facilities":
+            return await geospatial.fetch_nuclear_facilities(
+                facility_type=arguments.get("facility_type"),
+                country=arguments.get("country"),
+                status=arguments.get("status"),
+            )
+
         # System
         case "intel_status":
             return {
@@ -857,6 +931,7 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "social": ["reddit-public"],
                     "nuclear": ["usgs-nuclear-monitor"],
                     "service_status": ["aws", "azure", "gcp", "cloudflare", "github"],
+                    "geospatial": ["static-datasets (bases, ports, pipelines, nuclear)"],
                 },
             }
 

@@ -416,6 +416,32 @@ a { color: var(--accent); text-decoration: none; }
 }
 .mk-nuclear:hover { transform: scale(1.3); }
 .mk-nuclear.crit { animation: glow-green 1.8s ease-in-out infinite; }
+.mk-base {
+    width: 8px; height: 8px; border-radius: 2px;
+    background: var(--teal); opacity: 0.7;
+    border: 1px solid rgba(45,212,191,0.5);
+    cursor: pointer; transition: transform 0.15s, opacity 0.15s;
+}
+.mk-base:hover { transform: scale(1.5); opacity: 1; }
+.mk-port {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(77,168,255,0.6);
+    border: 1px solid rgba(77,168,255,0.4);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-port:hover { transform: scale(1.5); }
+.mk-nuke-fac {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(240,184,64,0.8) 30%, rgba(240,184,64,0) 70%);
+    border: 1.5px solid rgba(240,184,64,0.5);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-nuke-fac:hover { transform: scale(1.4); }
+.mk-nuke-fac.hot { animation: glow-gold 2s ease-in-out infinite; }
+@keyframes glow-gold {
+    0%,100% { box-shadow: 0 0 4px rgba(240,184,64,0.3); }
+    50% { box-shadow: 0 0 16px rgba(240,184,64,0.7); }
+}
 @keyframes glow-green {
     0%,100% { box-shadow: 0 0 4px rgba(52,211,153,0.3); }
     50% { box-shadow: 0 0 22px rgba(52,211,153,0.8); }
@@ -518,6 +544,12 @@ a { color: var(--accent); text-decoration: none; }
         <span class="layer-count" id="cntNuclear">0</span>
         <div class="toggle on" style="--lc:var(--green)"><div class="knob"></div></div>
     </div>
+    <div class="layer-row" data-layer="infra">
+        <span class="layer-dot" style="background:var(--teal)"></span>
+        <span class="layer-label">Infrastructure</span>
+        <span class="layer-count" id="cntInfra">0</span>
+        <div class="toggle on" style="--lc:var(--teal)"><div class="knob"></div></div>
+    </div>
 </aside>
 
 <!-- DATA DRAWER -->
@@ -581,7 +613,7 @@ function ago(ts) { if (!ts) return '\u2014'; var s = Math.floor((Date.now() - ne
 var latestData = null;
 var map = null;
 var mapLayers = {};
-var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true };
+var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true };
 var drawerOpen = false;
 
 // ════════════ MAP INIT ════════════
@@ -595,6 +627,7 @@ function initMap() {
     mapLayers.fires = L.layerGroup().addTo(map);
     mapLayers.convergence = L.layerGroup().addTo(map);
     mapLayers.nuclear = L.layerGroup().addTo(map);
+    mapLayers.infra = L.layerGroup().addTo(map);
 }
 
 // ════════════ LAYER TOGGLES ════════════
@@ -619,8 +652,8 @@ $('#drawerToggle').addEventListener('click', function() {
 });
 
 // ════════════ DETAIL MODAL ════════════
-var COLORS = { earthquake: 'var(--red)', military: 'var(--blue)', conflict: 'var(--amber)', fire: 'var(--gold)', convergence: 'var(--purple)', nuclear: 'var(--green)' };
-var LABELS = { earthquake: 'EARTHQUAKE', military: 'MILITARY AIRCRAFT', conflict: 'CONFLICT EVENT', fire: 'WILDFIRE CLUSTER', convergence: 'SIGNAL CONVERGENCE', nuclear: 'NUCLEAR MONITOR' };
+var COLORS = { earthquake: 'var(--red)', military: 'var(--blue)', conflict: 'var(--amber)', fire: 'var(--gold)', convergence: 'var(--purple)', nuclear: 'var(--green)', military_base: 'var(--teal)', port: 'var(--blue)', nuclear_facility: 'var(--gold)', pipeline: 'var(--purple)' };
+var LABELS = { earthquake: 'EARTHQUAKE', military: 'MILITARY AIRCRAFT', conflict: 'CONFLICT EVENT', fire: 'WILDFIRE CLUSTER', convergence: 'SIGNAL CONVERGENCE', nuclear: 'NUCLEAR MONITOR', military_base: 'MILITARY BASE', port: 'STRATEGIC PORT', nuclear_facility: 'NUCLEAR FACILITY', pipeline: 'PIPELINE' };
 
 function showDetail(type, d) {
     var title = '', subtitle = '', fields = [], link = '';
@@ -707,6 +740,43 @@ function showDetail(type, d) {
             ['Time', d.time || '\u2014'],
             ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014']
         ];
+    } else if (type === 'military_base') {
+        title = d.name || 'Base';
+        subtitle = d.operator + ' \u2014 ' + (d.country || '');
+        fields = [
+            ['Name', d.name || '\u2014'],
+            ['Operator', d.operator || '\u2014'],
+            ['Host Country', d.country || '\u2014'],
+            ['Type', (d.type || '\u2014').replace(/_/g, ' ')],
+            ['Branch', d.branch || '\u2014'],
+            ['Notes', d.notes || '\u2014'],
+            ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014']
+        ];
+    } else if (type === 'port') {
+        title = d.name || 'Port';
+        subtitle = (d.type || '').replace(/_/g, ' ') + ' \u2014 ' + (d.country || '');
+        fields = [
+            ['Name', d.name || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Type', (d.type || '\u2014').replace(/_/g, ' ')],
+            ['Throughput', d.throughput || '\u2014'],
+            ['Notes', d.notes || '\u2014'],
+            ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014']
+        ];
+    } else if (type === 'nuclear_facility') {
+        title = d.name || 'Facility';
+        subtitle = (d.type || '').replace(/_/g, ' ') + ' \u2014 ' + (d.country || '');
+        var st = d.status || '';
+        fields = [
+            ['Name', d.name || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Type', (d.type || '\u2014').replace(/_/g, ' ')],
+            ['Status', st.replace(/_/g, ' '), st === 'occupied' ? 'crit' : st === 'decommissioning' ? 'high' : ''],
+            ['Capacity', d.capacity_mw ? d.capacity_mw + ' MW' : 'N/A'],
+            ['Operator', d.operator || '\u2014'],
+            ['Notes', d.notes || '\u2014'],
+            ['Coordinates', d.latitude != null ? d.latitude.toFixed(3) + ', ' + d.longitude.toFixed(3) : '\u2014']
+        ];
     }
 
     var hdr = '<div class="detail-cat"><span class="detail-cat-dot" style="background:' + c + ';--cat-color:' + c + '"></span><span class="detail-cat-label">' + esc(LABELS[type] || type) + '</span></div>' +
@@ -776,6 +846,7 @@ COLORS.displacement = 'var(--pink)'; LABELS.displacement = 'DISPLACEMENT';
 COLORS.space = 'var(--gold)'; LABELS.space = 'SPACE WEATHER';
 COLORS.shipping = 'var(--teal)'; LABELS.shipping = 'SHIPPING';
 COLORS.service = 'var(--blue)'; LABELS.service = 'SERVICE STATUS';
+COLORS.pipeline = 'var(--purple)'; LABELS.pipeline = 'PIPELINE';
 
 var _drawerItems = {};
 var _drawerIdx = 0;
@@ -890,6 +961,18 @@ function showDrawerDetail(id) {
             ['Number', d.number || d.id || '\u2014'],
             ['Issued', d.dtg || d.date || '\u2014'],
             ['Text', d.text || d.description || '\u2014']
+        ];
+    } else if (type === 'pipeline') {
+        title = d.name || 'Pipeline';
+        subtitle = d.route || '';
+        var ps = d.status || '';
+        fields = [
+            ['Name', d.name || '\u2014'],
+            ['Route', d.route || '\u2014'],
+            ['Type', (d.type || '\u2014')],
+            ['Capacity', d.capacity || '\u2014'],
+            ['Status', ps.replace(/_/g, ' '), ps === 'destroyed' ? 'crit' : ps === 'terminated' ? 'crit' : ps === 'stalled' ? 'high' : ''],
+            ['Notes', d.notes || '\u2014']
         ];
     } else if (type === 'service') {
         title = (d.provider || '?') + ' \u2014 ' + (d.title || 'Incident');
@@ -1068,6 +1151,68 @@ function updateMapNuclear(data) {
         mk.addTo(mapLayers.nuclear);
     });
     $('#cntNuclear').textContent = flagged;
+}
+
+function updateMapInfra(data) {
+    mapLayers.infra.clearLayers();
+    var total = 0;
+    // Military bases
+    var bases = (data.military_bases && data.military_bases.bases) || [];
+    bases.forEach(function(b) {
+        if (b.lat == null || b.lon == null) return;
+        total++;
+        var mk = L.marker([b.lat, b.lon], {
+            icon: L.divIcon({ className: 'mk-base', iconSize: [8, 8], iconAnchor: [4, 4] })
+        });
+        mk.bindTooltip(esc(b.name) + ' (' + esc(b.operator) + ')', { className: 'mk-tip', direction: 'top', offset: [0, -4] });
+        mk.on('click', function() {
+            showDetail('military_base', {
+                name: b.name, country: b.country, operator: b.operator,
+                type: b.type, branch: b.branch, notes: b.notes,
+                latitude: b.lat, longitude: b.lon
+            });
+        });
+        mk.addTo(mapLayers.infra);
+    });
+    // Strategic ports
+    var ports = (data.strategic_ports && data.strategic_ports.ports) || [];
+    ports.forEach(function(p) {
+        if (p.lat == null || p.lon == null) return;
+        total++;
+        var mk = L.marker([p.lat, p.lon], {
+            icon: L.divIcon({ className: 'mk-port', iconSize: [7, 7], iconAnchor: [3.5, 3.5] })
+        });
+        mk.bindTooltip(esc(p.name) + ' (' + esc(p.type) + ')', { className: 'mk-tip', direction: 'top', offset: [0, -4] });
+        mk.on('click', function() {
+            showDetail('port', {
+                name: p.name, country: p.country, type: p.type,
+                throughput: p.throughput, notes: p.notes,
+                latitude: p.lat, longitude: p.lon
+            });
+        });
+        mk.addTo(mapLayers.infra);
+    });
+    // Nuclear facilities
+    var nukes = (data.nuclear_facilities && data.nuclear_facilities.facilities) || [];
+    nukes.forEach(function(n) {
+        if (n.lat == null || n.lon == null) return;
+        total++;
+        var isHot = n.status === 'occupied' || n.type === 'enrichment';
+        var mk = L.marker([n.lat, n.lon], {
+            icon: L.divIcon({ className: 'mk-nuke-fac' + (isHot ? ' hot' : ''), iconSize: [9, 9], iconAnchor: [4.5, 4.5] })
+        });
+        mk.bindTooltip(esc(n.name) + ' (' + esc(n.status) + ')', { className: 'mk-tip', direction: 'top', offset: [0, -5] });
+        mk.on('click', function() {
+            showDetail('nuclear_facility', {
+                name: n.name, country: n.country, type: n.type,
+                capacity_mw: n.capacity_mw, status: n.status,
+                operator: n.operator, notes: n.notes,
+                latitude: n.lat, longitude: n.lon
+            });
+        });
+        mk.addTo(mapLayers.infra);
+    });
+    $('#cntInfra').textContent = total;
 }
 
 function updateAlertBanner(data) {
@@ -1615,6 +1760,28 @@ function updateDrawer(data) {
         }
     }
 
+    // ── GEOSPATIAL ──
+    if (data.military_bases || data.strategic_ports || data.pipelines || data.nuclear_facilities) {
+        h += '<div class="sh">GEOSPATIAL</div>';
+        h += '<div class="mini-row">';
+        h += '<div class="mini-box"><div class="v">' + ((data.military_bases || {}).count || 0) + '</div><div class="l">Bases</div></div>';
+        h += '<div class="mini-box"><div class="v">' + ((data.strategic_ports || {}).count || 0) + '</div><div class="l">Ports</div></div>';
+        h += '<div class="mini-box"><div class="v">' + ((data.pipelines || {}).count || 0) + '</div><div class="l">Pipelines</div></div>';
+        h += '<div class="mini-box"><div class="v">' + ((data.nuclear_facilities || {}).count || 0) + '</div><div class="l">Nuke Sites</div></div>';
+        h += '</div>';
+        // Pipeline summary
+        var pipes = (data.pipelines && data.pipelines.pipelines) || [];
+        if (pipes.length) {
+            h += '<div class="sub">Key Pipelines</div><table class="dtable"><thead><tr><th>Name</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+            pipes.slice(0, 12).forEach(function(p) {
+                var sCls = p.status === 'destroyed' ? 'down' : p.status === 'active' ? 'up' : p.status === 'terminated' ? 'down' : 'dim';
+                var did = _storeItem('pipeline', p);
+                h += '<tr data-click="' + did + '"><td>' + esc(trunc(p.name || '?', 25)) + '</td><td class="dim">' + esc(p.type || '') + '</td><td class="' + sCls + '">' + esc(p.status || '') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+
     // ── TRENDS ──
     if (data.weekly_trends && !data.weekly_trends.error) {
         var wt = data.weekly_trends;
@@ -1688,6 +1855,7 @@ function updateAll(data) {
     updateMapFires(data.wildfires);
     updateMapConvergence(data.signal_convergence);
     updateMapNuclear(data.nuclear_monitor);
+    updateMapInfra(data);
 
     // Alert banner
     updateAlertBanner(data.alert_digest);

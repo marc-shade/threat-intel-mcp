@@ -44,6 +44,7 @@ from world_intel_mcp.sources import (
 )
 from world_intel_mcp.analysis.alerts import fetch_alert_digest, fetch_weekly_trends
 from world_intel_mcp.config.countries import INTEL_HOTSPOTS
+from world_intel_mcp.config.geospatial import MILITARY_BASES, STRATEGIC_PORTS, PIPELINES, NUCLEAR_FACILITIES
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,12 @@ async def _fetch_overview() -> dict:
             "count": len(hotspot_events),
             "source": "intel-hotspots",
         }
+
+    # Static geospatial datasets (no API calls)
+    result["military_bases"] = {"bases": MILITARY_BASES, "count": len(MILITARY_BASES)}
+    result["strategic_ports"] = {"ports": STRATEGIC_PORTS, "count": len(STRATEGIC_PORTS)}
+    result["pipelines"] = {"pipelines": PIPELINES, "count": len(PIPELINES)}
+    result["nuclear_facilities"] = {"facilities": NUCLEAR_FACILITIES, "count": len(NUCLEAR_FACILITIES)}
 
     # Attach source health + timestamp
     result["source_health"] = _breaker.status() if _breaker else {}
