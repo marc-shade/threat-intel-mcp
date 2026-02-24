@@ -445,6 +445,13 @@ a { color: var(--accent); text-decoration: none; }
 .mk-climate.cool { background: radial-gradient(circle, rgba(100,181,246,0.7) 20%, rgba(100,181,246,0) 70%); border: 2px solid rgba(100,181,246,0.5); }
 .mk-climate.cold { background: radial-gradient(circle, rgba(77,168,255,0.8) 20%, rgba(77,168,255,0) 70%); border: 2px solid rgba(77,168,255,0.6); }
 .mk-climate.sig { animation: glow-climate 2s ease-in-out infinite; }
+.mk-news {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(0,229,255,0.7);
+    border: 1px solid rgba(0,229,255,0.5);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-news:hover { transform: scale(2); }
 @keyframes glow-climate {
     0%,100% { box-shadow: 0 0 4px rgba(255,107,107,0.3); }
     50% { box-shadow: 0 0 18px rgba(255,107,107,0.7); }
@@ -641,6 +648,12 @@ a { color: var(--accent); text-decoration: none; }
         <span class="layer-count" id="cntClimate">0</span>
         <div class="toggle on" style="--lc:#ff6b6b"><div class="knob"></div></div>
     </div>
+    <div class="layer-row" data-layer="news">
+        <span class="layer-dot" style="background:var(--accent)"></span>
+        <span class="layer-label">News</span>
+        <span class="layer-count" id="cntNews">0</span>
+        <div class="toggle on" style="--lc:var(--accent)"><div class="knob"></div></div>
+    </div>
 </aside>
 
 <!-- DATA DRAWER -->
@@ -687,7 +700,7 @@ function ago(ts) { if (!ts) return '\u2014'; var s = Math.floor((Date.now() - ne
 var latestData = null;
 var map = null;
 var mapLayers = {};
-var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true, climate: true };
+var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true, climate: true, news: true };
 // Restore saved layer toggles from localStorage
 try { var _saved = JSON.parse(localStorage.getItem('phoenix-layers')); if (_saved) { for (var _k in _saved) { if (layerState.hasOwnProperty(_k)) layerState[_k] = _saved[_k]; } } } catch(e) {}
 var drawerOpen = false;
@@ -722,6 +735,7 @@ function initMap() {
     mapLayers.navwarnings = L.markerClusterGroup(clusterOpts(null, 40)).addTo(map);
     mapLayers.webcams = L.layerGroup().addTo(map);
     mapLayers.climate = L.layerGroup().addTo(map);
+    mapLayers.news = L.markerClusterGroup(clusterOpts(null, 35)).addTo(map);
 }
 
 // ════════════ LAYER TOGGLES ════════════
@@ -915,6 +929,19 @@ function showDetail(type, d) {
             ['Coordinates', d.lat != null ? d.lat + ', ' + d.lon : '\u2014']
         ];
         link = d.player_url || '';
+    } else if (type === 'news') {
+        title = d.title || 'Article';
+        subtitle = (d.feed_name || '') + (d._geo_country ? ' \u2014 ' + d._geo_country : '');
+        fields = [
+            ['Title', d.title || '\u2014'],
+            ['Source', d.feed_name || '\u2014'],
+            ['Category', d.category || '\u2014'],
+            ['Published', d.published ? new Date(d.published).toLocaleString() : '\u2014'],
+            ['Summary', trunc(d.summary || '', 200)],
+            ['Tier', d.source_tier || '\u2014'],
+            ['Region', d._geo_country || '\u2014']
+        ];
+        link = d.link || '';
     } else if (type === 'navwarn') {
         title = 'NAVAREA ' + (d.navarea || '?') + ' \u2014 ' + (d.id || '');
         subtitle = d.status || '';
@@ -1608,6 +1635,68 @@ function updateMapClimate(data) {
         mk.on('click', function() { showDetail('climate', z); });
         mk.addTo(mapLayers.climate);
     });
+}
+
+// Country name → centroid for news geolocation
+var COUNTRY_CENTROIDS = {
+    'ukraine':[48.4,31.2],'russia':[61.5,105],'china':[35.9,104.2],'taiwan':[23.7,121],
+    'iran':[32.4,53.7],'israel':[31.0,34.8],'palestine':[31.9,35.2],'gaza':[31.4,34.4],
+    'syria':[35,38.9],'iraq':[33.2,43.7],'yemen':[15.6,48.5],'lebanon':[33.9,35.9],
+    'north korea':[40,127],'south korea':[35.9,128],'japan':[36.2,138.3],'india':[20.6,79],
+    'pakistan':[30.4,69.3],'afghanistan':[33.9,67.7],'myanmar':[19.8,96.7],
+    'ethiopia':[9.1,40.5],'sudan':[12.9,30.2],'somalia':[5.2,46.2],'nigeria':[9.1,8.7],
+    'congo':[-4.0,21.8],'mali':[17.6,-4],'libya':[26.3,17.2],'mozambique':[-18.7,35.5],
+    'united states':[37.1,-95.7],'usa':[37.1,-95.7],'u.s.':[37.1,-95.7],
+    'united kingdom':[55.4,-3.4],'uk':[55.4,-3.4],'britain':[55.4,-3.4],
+    'france':[46.2,2.2],'germany':[51.2,10.4],'italy':[41.9,12.6],'spain':[40.5,-3.7],
+    'turkey':[39,35.2],'egypt':[26.8,30.8],'saudi arabia':[23.9,45.1],
+    'brazil':[-14.2,-51.9],'mexico':[23.6,-102.6],'canada':[56.1,-106.3],
+    'australia':[-25.3,133.8],'south africa':[-30.6,22.9],'colombia':[4.6,-74.3],
+    'venezuela':[6.4,-66.6],'argentina':[-38.4,-63.6],'peru':[-9.2,-75],
+    'philippines':[12.9,122],'indonesia':[-0.8,113.9],'thailand':[15.9,100.9],
+    'vietnam':[14.1,108.3],'malaysia':[4.2,101.9],'singapore':[1.4,103.8],
+    'poland':[51.9,19.1],'romania':[45.9,25],'greece':[39.1,21.8],
+    'sweden':[60.1,18.6],'norway':[60.5,8.5],'finland':[61.9,25.7],
+    'netherlands':[52.1,5.3],'belgium':[50.5,4.5],'switzerland':[46.8,8.2],
+    'austria':[47.5,14.6],'hungary':[47.2,19.5],'czech':[49.8,15.5],
+    'kenya':[-0.02,37.9],'ghana':[7.9,-1.02],'senegal':[14.5,-14.5],
+    'morocco':[31.8,-7.1],'algeria':[28.0,1.7],'tunisia':[33.9,9.5],
+    'new zealand':[-40.9,174.9],'chile':[-35.7,-71.5]
+};
+
+function _geolocateArticle(article) {
+    var text = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+    for (var country in COUNTRY_CENTROIDS) {
+        if (COUNTRY_CENTROIDS.hasOwnProperty(country) && text.indexOf(country) >= 0) {
+            return { country: country, lat: COUNTRY_CENTROIDS[country][0], lon: COUNTRY_CENTROIDS[country][1] };
+        }
+    }
+    return null;
+}
+
+function updateMapNews(data) {
+    mapLayers.news.clearLayers();
+    if (!data || data.error) { $('#cntNews').textContent = '0'; return; }
+    var articles = data.articles || data.items || [];
+    var placed = 0;
+    articles.forEach(function(a) {
+        var geo = _geolocateArticle(a);
+        if (!geo) return;
+        placed++;
+        // Jitter to avoid exact overlap
+        var jlat = geo.lat + (Math.random() - 0.5) * 2;
+        var jlon = geo.lon + (Math.random() - 0.5) * 2;
+        a._geo_country = geo.country;
+        a._geo_lat = jlat;
+        a._geo_lon = jlon;
+        var mk = L.marker([jlat, jlon], {
+            icon: L.divIcon({ className: 'mk-news', iconSize: [6, 6], iconAnchor: [3, 3] })
+        });
+        mk.bindTooltip(esc(trunc(a.title || '?', 40)) + '<br><span style="opacity:0.6">' + esc(a.feed_name || '') + '</span>', { className: 'mk-tip', direction: 'top', offset: [0, -4] });
+        mk.on('click', function() { showDetail('news', a); });
+        mk.addTo(mapLayers.news);
+    });
+    $('#cntNews').textContent = placed;
 }
 
 function updateAlertBanner(data) {
@@ -2438,7 +2527,8 @@ function updateAll(data) {
         ['traffic', function() { updateMapTraffic(data.traffic_flow); }],
         ['navwarnings', function() { updateMapNavWarnings(data.nav_warnings); }],
         ['webcams', function() { updateMapWebcams(data.webcams); }],
-        ['climate', function() { updateMapClimate(data.climate_anomalies); }]
+        ['climate', function() { updateMapClimate(data.climate_anomalies); }],
+        ['news', function() { updateMapNews(data.news_feed); }]
     ];
     mapUpdates.forEach(function(pair) {
         try { pair[1](); } catch(e) { console.warn('updateAll: ' + pair[0] + ' failed:', e); }
@@ -2526,7 +2616,7 @@ $('#drawerBody').addEventListener('click', function(e) {
 });
 
 // HUD pill click-to-zoom
-var HUD_LAYER_MAP = { 'Quakes': 'quakes', 'Aircraft': 'military', 'Conflict': 'conflict', 'Fires': 'fires', 'Exposed': 'exposure', 'Airborne': 'airtraffic', 'Traffic': 'traffic', 'Cams': 'webcams', 'Nuke Flag': 'nuclear', 'Climate': 'climate' };
+var HUD_LAYER_MAP = { 'Quakes': 'quakes', 'Aircraft': 'military', 'Conflict': 'conflict', 'Fires': 'fires', 'Exposed': 'exposure', 'Airborne': 'airtraffic', 'Traffic': 'traffic', 'Cams': 'webcams', 'Nuke Flag': 'nuclear', 'Climate': 'climate', 'News': 'news' };
 $('#hudStats').addEventListener('click', function(e) {
     var pill = e.target.closest('.stat-pill');
     if (!pill) return;
@@ -2611,6 +2701,9 @@ function performSearch(q) {
     var climZones = climSrc.anomalies || climSrc.zones || climSrc.data || [];
     if (!Array.isArray(climZones) && typeof climZones === 'object') climZones = Object.values(climZones);
     _scan(climZones, 'lat', 'lon');
+    // News articles with geolocation
+    var newsArticles = (latestData.news_feed || {}).articles || (latestData.news_feed || {}).items || [];
+    newsArticles.forEach(function(a) { if (a._geo_lat && _matchText(a, q)) coords.push([a._geo_lat, a._geo_lon]); });
     if (coords.length > 0) {
         map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], maxZoom: coords.length === 1 ? 10 : 6 });
         $('#searchInput').style.borderColor = 'rgba(0,229,255,0.4)';
