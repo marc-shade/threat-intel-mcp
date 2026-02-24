@@ -40,6 +40,7 @@ from world_intel_mcp.sources import (
     shipping,
     social,
     nuclear,
+    service_status,
 )
 from world_intel_mcp.analysis.alerts import fetch_alert_digest, fetch_weekly_trends
 from world_intel_mcp.config.countries import INTEL_HOTSPOTS
@@ -105,6 +106,7 @@ async def _fetch_overview() -> dict:
         "nuclear_monitor": nuclear.fetch_nuclear_monitor(fetcher),
         "alert_digest": fetch_alert_digest(fetcher),
         "weekly_trends": fetch_weekly_trends(fetcher),
+        "service_status": service_status.fetch_service_status(fetcher),
     }
 
     gathered = await asyncio.gather(

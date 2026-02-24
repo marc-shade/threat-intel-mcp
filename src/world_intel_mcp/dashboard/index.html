@@ -256,6 +256,59 @@ a { color: var(--accent); text-decoration: none; }
 }
 .detail-link:hover { background: rgba(0,229,255,0.15); }
 
+/* ═══════════════ LINK MODAL (iframe overlay) ═══════════════ */
+#linkModal {
+    position: fixed; inset: 0; z-index: 200;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+}
+#linkModal.open { display: flex; }
+.lm-box {
+    width: min(90vw, 900px); height: min(85vh, 700px);
+    background: var(--card); border: 1px solid var(--glow);
+    border-radius: var(--radius); display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    overflow: hidden;
+}
+.lm-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel); flex-shrink: 0;
+}
+.lm-title {
+    flex: 1; font-size: 0.78rem; font-weight: 600; color: var(--bright);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lm-url {
+    font-family: var(--mono); font-size: 0.6rem; color: var(--dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;
+}
+.lm-btn {
+    background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 5px; color: var(--accent); font-size: 0.68rem;
+    padding: 4px 10px; cursor: pointer; white-space: nowrap;
+    transition: background 0.2s;
+}
+.lm-btn:hover { background: rgba(0,229,255,0.18); }
+.lm-close {
+    background: none; border: none; color: var(--dim); font-size: 1.4rem;
+    cursor: pointer; padding: 0 4px; transition: color 0.2s;
+}
+.lm-close:hover { color: var(--bright); }
+.lm-frame { flex: 1; border: none; background: #111; }
+.lm-blocked {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    color: var(--dim); font-size: 0.8rem; text-align: center; padding: 24px;
+}
+.lm-blocked .lm-btn { font-size: 0.8rem; padding: 8px 20px; }
+
+/* ═══════════════ CLICKABLE DRAWER ROWS ═══════════════ */
+.dtable tr[data-click] { cursor: pointer; }
+.dtable tr[data-click]:hover td { background: rgba(0,229,255,0.04) !important; }
+.drawer-item { cursor: pointer; transition: background 0.15s; border-radius: 4px; padding: 4px 6px; margin: 0 -6px; }
+.drawer-item:hover { background: rgba(0,229,255,0.04); }
+
 /* ═══════════════ BOTTOM TICKER ═══════════════ */
 #ticker {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
@@ -480,6 +533,23 @@ a { color: var(--accent); text-decoration: none; }
     <div class="detail-body" id="detailBody"></div>
 </div>
 
+<!-- LINK MODAL -->
+<div id="linkModal">
+    <div class="lm-box">
+        <div class="lm-bar">
+            <span class="lm-title" id="lmTitle"></span>
+            <span class="lm-url" id="lmUrl"></span>
+            <button class="lm-btn" id="lmOpenTab">Open in Tab</button>
+            <button class="lm-close" id="lmClose">&times;</button>
+        </div>
+        <iframe class="lm-frame" id="lmFrame" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+        <div class="lm-blocked" id="lmBlocked" style="display:none">
+            <div>This site blocked iframe embedding.</div>
+            <button class="lm-btn" id="lmFallbackOpen">Open in New Tab</button>
+        </div>
+    </div>
+</div>
+
 <!-- BOTTOM TICKER -->
 <div id="ticker" class="glass">
     <div class="ticker-label">INTEL</div>
@@ -496,7 +566,7 @@ a { color: var(--accent); text-decoration: none; }
 
 var $ = function(s) { return document.querySelector(s); };
 var $$ = function(s) { return document.querySelectorAll(s); };
-var safe = function(h) { return DOMPurify.sanitize(h, {ALLOWED_TAGS: ['tr','td','th','table','thead','tbody','a','span','div','br'], ALLOWED_ATTR: ['class','style','href','target']}); };
+var safe = function(h) { return DOMPurify.sanitize(h, {ALLOWED_TAGS: ['tr','td','th','table','thead','tbody','a','span','div','br'], ALLOWED_ATTR: ['class','style','href','data-click','data-external']}); };
 
 function fmtNum(n, d) { d = d != null ? d : 2; return n == null ? '\u2014' : Number(n).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
 function fmtPct(n) { return n == null ? '\u2014' : (n >= 0 ? '+' : '') + fmtNum(n); }
@@ -647,7 +717,7 @@ function showDetail(type, d) {
         return '<div class="df"><span class="df-l">' + esc(f[0]) + '</span><span class="df-v ' + (f[2] || '') + '">' + esc(String(f[1])) + '</span></div>';
     }).join('');
 
-    if (link) body += '<a class="detail-link" href="' + esc(link) + '" target="_blank">View Source \u2192</a>';
+    if (link) body += '<a class="detail-link" href="' + esc(link) + '" data-external="1">View Source \u2192</a>';
 
     $('#detailHeader').innerHTML = safe(hdr);
     $('#detailBody').innerHTML = safe(body);
@@ -656,7 +726,220 @@ function showDetail(type, d) {
 
 function closeDetail() { $('#detail').classList.remove('open'); }
 $('#detailClose').addEventListener('click', closeDetail);
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDetail(); });
+
+// ════════════ LINK MODAL (iframe for external URLs) ════════════
+var _lmUrl = '';
+function showLinkModal(url, title) {
+    _lmUrl = url;
+    $('#lmTitle').textContent = title || 'External Content';
+    $('#lmUrl').textContent = url;
+    $('#lmFrame').style.display = '';
+    $('#lmBlocked').style.display = 'none';
+    $('#lmFrame').src = url;
+    $('#linkModal').classList.add('open');
+    // Detect iframe load failure (many sites block it)
+    var frame = $('#lmFrame');
+    var timer = setTimeout(function() {
+        // If we get here without load, show fallback
+        try { var doc = frame.contentDocument; if (!doc || !doc.body || doc.body.innerHTML === '') { _showLmBlocked(); } }
+        catch(e) { _showLmBlocked(); }
+    }, 5000);
+    frame.onload = function() { clearTimeout(timer); };
+    frame.onerror = function() { clearTimeout(timer); _showLmBlocked(); };
+}
+function _showLmBlocked() {
+    $('#lmFrame').style.display = 'none';
+    $('#lmBlocked').style.display = 'flex';
+}
+function closeLinkModal() {
+    $('#linkModal').classList.remove('open');
+    $('#lmFrame').src = 'about:blank';
+    _lmUrl = '';
+}
+$('#lmClose').addEventListener('click', closeLinkModal);
+$('#lmOpenTab').addEventListener('click', function() { if (_lmUrl) window.open(_lmUrl, '_blank'); });
+$('#lmFallbackOpen').addEventListener('click', function() { if (_lmUrl) { window.open(_lmUrl, '_blank'); closeLinkModal(); } });
+$('#linkModal').addEventListener('click', function(e) { if (e.target === this) closeLinkModal(); });
+
+// ════════════ DRAWER DETAIL TYPES ════════════
+// Extend showDetail to handle drawer item types
+COLORS.news = 'var(--accent)'; LABELS.news = 'NEWS ARTICLE';
+COLORS.cyber = 'var(--red)'; LABELS.cyber = 'CYBER THREAT';
+COLORS.health = 'var(--pink)'; LABELS.health = 'HEALTH ALERT';
+COLORS.ai = 'var(--purple)'; LABELS.ai = 'AI / ML';
+COLORS.social = 'var(--teal)'; LABELS.social = 'SOCIAL SIGNAL';
+COLORS.prediction = 'var(--gold)'; LABELS.prediction = 'PREDICTION MARKET';
+COLORS.election = 'var(--amber)'; LABELS.election = 'ELECTION';
+COLORS.outage = 'var(--amber)'; LABELS.outage = 'INFRASTRUCTURE';
+COLORS.navwarning = 'var(--blue)'; LABELS.navwarning = 'NAV WARNING';
+COLORS.displacement = 'var(--pink)'; LABELS.displacement = 'DISPLACEMENT';
+COLORS.space = 'var(--gold)'; LABELS.space = 'SPACE WEATHER';
+COLORS.shipping = 'var(--teal)'; LABELS.shipping = 'SHIPPING';
+COLORS.service = 'var(--blue)'; LABELS.service = 'SERVICE STATUS';
+
+var _drawerItems = {};
+var _drawerIdx = 0;
+function _storeItem(type, data) {
+    var id = 'di_' + (++_drawerIdx);
+    _drawerItems[id] = {type: type, data: data};
+    return id;
+}
+
+function showDrawerDetail(id) {
+    var item = _drawerItems[id];
+    if (!item) return;
+    var type = item.type, d = item.data;
+    var title = '', subtitle = '', fields = [], link = '';
+    var c = COLORS[type] || 'var(--accent)';
+
+    if (type === 'news') {
+        title = d.title || 'Article';
+        subtitle = d.feed_name || d.source || '';
+        fields = [
+            ['Source', d.feed_name || d.source || '\u2014'],
+            ['Published', d.published ? new Date(d.published).toLocaleString() : (d.pub_date || '\u2014')],
+            ['Category', d.category || d.feed_category || '\u2014'],
+            ['Source Tier', d.source_tier || '\u2014']
+        ];
+        if (d.summary || d.description) fields.push(['Summary', trunc(d.summary || d.description || '', 500)]);
+        link = d.link || d.url || '';
+    } else if (type === 'cyber') {
+        title = d.indicator || d.ioc || d.url || 'Threat';
+        subtitle = d.threat_type || d.type || '';
+        fields = [
+            ['Indicator', d.indicator || d.ioc || d.url || '\u2014'],
+            ['Type', d.threat_type || d.type || '\u2014'],
+            ['Severity', d.severity || '\u2014', (d.severity||'').toLowerCase() === 'critical' ? 'crit' : (d.severity||'').toLowerCase() === 'high' ? 'high' : ''],
+            ['Source', d.source || d.reporter || '\u2014'],
+            ['First Seen', d.first_seen || d.date || '\u2014'],
+            ['Tags', (d.tags || []).join(', ') || '\u2014']
+        ];
+        link = d.reference || d.reference_url || '';
+    } else if (type === 'health') {
+        title = d.title || 'Health Alert';
+        subtitle = d.organization || '';
+        fields = [
+            ['Organization', d.organization || '\u2014'],
+            ['Published', d.published ? new Date(d.published).toLocaleString() : '\u2014'],
+            ['High Concern', d.high_concern ? 'YES' : 'No', d.high_concern ? 'crit' : 'ok'],
+            ['Summary', trunc(d.summary || d.description || '', 500)]
+        ];
+        link = d.link || d.url || '';
+    } else if (type === 'ai') {
+        title = d.title || 'AI Paper';
+        subtitle = d.feed_name || '';
+        fields = [
+            ['Source', d.feed_name || '\u2014'],
+            ['Published', d.published ? new Date(d.published).toLocaleString() : '\u2014'],
+            ['Category', d.category || '\u2014'],
+            ['Summary', trunc(d.summary || d.description || '', 500)]
+        ];
+        link = d.link || d.url || '';
+    } else if (type === 'social') {
+        title = d.title || 'Post';
+        subtitle = 'r/' + (d.subreddit || '?') + '  \u2022  Score: ' + (d.score || 0);
+        fields = [
+            ['Subreddit', 'r/' + (d.subreddit || '\u2014')],
+            ['Score', String(d.score || 0)],
+            ['Comments', String(d.num_comments || d.comments || 0)],
+            ['Author', d.author || '\u2014'],
+            ['Created', d.created ? new Date(d.created * 1000).toLocaleString() : '\u2014']
+        ];
+        if (d.selftext) fields.push(['Text', trunc(d.selftext, 500)]);
+        link = d.url || d.permalink || '';
+    } else if (type === 'prediction') {
+        var prob = d.probability || d.yes_price;
+        title = d.question || d.title || 'Market';
+        subtitle = prob != null ? 'Probability: ' + (typeof prob === 'number' ? (prob * 100).toFixed(0) + '%' : String(prob)) : '';
+        fields = [
+            ['Question', d.question || d.title || '\u2014'],
+            ['Probability', prob != null ? (typeof prob === 'number' ? (prob * 100).toFixed(1) + '%' : String(prob)) : '\u2014'],
+            ['Volume', d.volume ? fmtBig(d.volume) : '\u2014'],
+            ['Market', d.market_slug || d.platform || '\u2014'],
+            ['End Date', d.end_date || d.close_time || '\u2014']
+        ];
+        link = d.url || '';
+    } else if (type === 'election') {
+        title = (d.country || '?') + ' \u2014 ' + (d.election_type || 'Election');
+        subtitle = d.date || '';
+        fields = [
+            ['Country', d.country || '\u2014'],
+            ['Type', d.election_type || '\u2014'],
+            ['Date', d.date || '\u2014'],
+            ['Days Until', d.days_until != null ? String(d.days_until) : '\u2014'],
+            ['Risk Score', d.risk_score != null ? String(d.risk_score) : '\u2014', (d.risk_score||0) >= 80 ? 'crit' : (d.risk_score||0) >= 50 ? 'high' : ''],
+            ['Impact', d.instability_impact || '\u2014'],
+            ['Description', d.description || '\u2014']
+        ];
+    } else if (type === 'outage') {
+        title = d.entity_name || d.country || d.location || 'Outage';
+        subtitle = d.entity_type || '';
+        fields = [
+            ['Entity', d.entity_name || '\u2014'],
+            ['Type', d.entity_type || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Score', d.overall_score != null ? String(d.overall_score) : '\u2014'],
+            ['Start', d.from || d.start || '\u2014'],
+            ['End', d.until || d.end || '\u2014']
+        ];
+    } else if (type === 'navwarning') {
+        title = (d.navArea || d.area || 'Nav Warning');
+        subtitle = '';
+        fields = [
+            ['Area', d.navArea || d.area || '\u2014'],
+            ['Number', d.number || d.id || '\u2014'],
+            ['Issued', d.dtg || d.date || '\u2014'],
+            ['Text', d.text || d.description || '\u2014']
+        ];
+    } else if (type === 'service') {
+        title = (d.provider || '?') + ' \u2014 ' + (d.title || 'Incident');
+        subtitle = d.severity || '';
+        fields = [
+            ['Provider', d.provider || '\u2014'],
+            ['Title', d.title || '\u2014'],
+            ['Severity', d.severity || '\u2014', d.severity === 'critical' ? 'crit' : d.severity === 'high' ? 'high' : ''],
+            ['Published', d.published ? new Date(d.published).toLocaleString() : '\u2014'],
+            ['Summary', trunc(d.summary || '', 500)]
+        ];
+        link = d.link || '';
+    } else {
+        title = d.title || d.name || JSON.stringify(d).slice(0, 80);
+        fields = Object.keys(d).slice(0, 12).map(function(k) { return [k, trunc(String(d[k] || ''), 120)]; });
+    }
+
+    var hdr = '<div class="detail-cat"><span class="detail-cat-dot" style="background:' + c + ';--cat-color:' + c + '"></span><span class="detail-cat-label">' + esc(LABELS[type] || type.toUpperCase()) + '</span></div>' +
+              '<div class="detail-title">' + esc(title) + '</div>' +
+              (subtitle ? '<div class="detail-subtitle">' + esc(subtitle) + '</div>' : '');
+
+    var body = fields.map(function(f) {
+        return '<div class="df"><span class="df-l">' + esc(f[0]) + '</span><span class="df-v ' + (f[2] || '') + '">' + esc(String(f[1])) + '</span></div>';
+    }).join('');
+
+    if (link) body += '<a class="detail-link" href="' + esc(link) + '" data-external="1">View Source \u2192</a>';
+
+    $('#detailHeader').innerHTML = safe(hdr);
+    $('#detailBody').innerHTML = safe(body);
+    $('#detail').classList.add('open');
+}
+
+// ════════════ GLOBAL LINK INTERCEPTOR ════════════
+document.addEventListener('click', function(e) {
+    var a = e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (!href || href === '#' || href.startsWith('javascript:')) return;
+    // External link detection
+    if (href.startsWith('http://') || href.startsWith('https://') || a.hasAttribute('data-external')) {
+        e.preventDefault();
+        e.stopPropagation();
+        var title = a.textContent || a.title || href;
+        showLinkModal(href, title);
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeLinkModal(); closeDetail(); }
+});
 
 // ════════════ MAP MARKER MANAGEMENT ════════════
 
@@ -864,6 +1147,8 @@ function updateHudStats(data) {
 // ════════════ DATA DRAWER ════════════
 
 function updateDrawer(data) {
+    _drawerItems = {};
+    _drawerIdx = 0;
     var h = '';
 
     // ── ALERTS ──
@@ -990,7 +1275,8 @@ function updateDrawer(data) {
         threats.slice(0, 15).forEach(function(t) {
             var sev = (t.severity || '').toLowerCase();
             var sc = sev === 'critical' ? 'down' : sev === 'high' ? 'warn' : 'dim';
-            h += '<tr><td>' + esc(trunc(t.indicator || t.url || t.ioc || '?', 30)) + '</td><td class="dim">' + esc(t.threat_type || t.type || '\u2014') + '</td><td class="' + sc + '">' + esc(t.severity || '\u2014') + '</td></tr>';
+            var did = _storeItem('cyber', t);
+            h += '<tr data-click="' + did + '"><td>' + esc(trunc(t.indicator || t.url || t.ioc || '?', 30)) + '</td><td class="dim">' + esc(t.threat_type || t.type || '\u2014') + '</td><td class="' + sc + '">' + esc(t.severity || '\u2014') + '</td></tr>';
         });
         h += '</tbody></table>';
     }
@@ -1015,12 +1301,26 @@ function updateDrawer(data) {
             h += '</tbody></table>';
         }
     }
+    if (data.service_status && !data.service_status.error) {
+        var svcInc = data.service_status.incidents || [];
+        var activeSvc = data.service_status.active_incidents || 0;
+        if (svcInc.length) {
+            h += '<div class="sub">Cloud Services' + (activeSvc > 0 ? ' (' + activeSvc + ' active)' : '') + '</div><table class="dtable"><thead><tr><th>Provider</th><th>Incident</th><th>Sev</th></tr></thead><tbody>';
+            svcInc.slice(0, 10).forEach(function(s) {
+                var sevCls = s.severity === 'critical' ? 'down' : s.severity === 'high' ? 'warn' : 'dim';
+                var did = _storeItem('service', s);
+                h += '<tr data-click="' + did + '"><td class="bright">' + esc(s.provider || '?') + '</td><td>' + esc(trunc(s.title || '\u2014', 30)) + '</td><td class="' + sevCls + '">' + esc(s.severity || '\u2014') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
     if (data.nav_warnings && !data.nav_warnings.error) {
         var navs = data.nav_warnings.warnings || [];
         if (navs.length) {
             h += '<div class="sub">Nav Warnings (' + navs.length + ')</div><table class="dtable"><thead><tr><th>Area</th><th>Warning</th></tr></thead><tbody>';
             navs.slice(0, 8).forEach(function(w) {
-                h += '<tr><td class="bright">' + esc(w.navArea || w.area || '?') + '</td><td class="dim">' + esc(trunc(w.text || w.description || '\u2014', 40)) + '</td></tr>';
+                var did = _storeItem('navwarning', w);
+                h += '<tr data-click="' + did + '"><td class="bright">' + esc(w.navArea || w.area || '?') + '</td><td class="dim">' + esc(trunc(w.text || w.description || '\u2014', 40)) + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1077,7 +1377,8 @@ function updateDrawer(data) {
             h += '<div class="sub">Prediction Markets</div><table class="dtable"><thead><tr><th>Market</th><th>Prob</th><th>Vol</th></tr></thead><tbody>';
             mkts.slice(0, 10).forEach(function(m) {
                 var prob = m.probability || m.yes_price;
-                h += '<tr><td>' + esc(trunc(m.question || m.title || '?', 35)) + '</td><td class="bright">' + (prob != null ? (typeof prob === 'number' ? (prob * 100).toFixed(0) + '%' : esc(String(prob))) : '\u2014') + '</td><td class="dim">' + fmtBig(m.volume || 0) + '</td></tr>';
+                var did = _storeItem('prediction', m);
+                h += '<tr data-click="' + did + '"><td>' + esc(trunc(m.question || m.title || '?', 35)) + '</td><td class="bright">' + (prob != null ? (typeof prob === 'number' ? (prob * 100).toFixed(0) + '%' : esc(String(prob))) : '\u2014') + '</td><td class="dim">' + fmtBig(m.volume || 0) + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1088,7 +1389,8 @@ function updateDrawer(data) {
             h += '<div class="sub">UCDP Events (' + (data.ucdp_events.count || ucdp.length) + ')</div><table class="dtable"><thead><tr><th>Conflict</th><th>Deaths</th></tr></thead><tbody>';
             ucdp.slice(0, 10).forEach(function(e) {
                 var best = e.best || e.best_fatality_estimate || 0;
-                h += '<tr><td>' + esc(trunc(e.dyad_name || e.side_a || '?', 30)) + '</td><td class="' + (best > 10 ? 'down' : best > 0 ? 'warn' : 'dim') + '">' + best + '</td></tr>';
+                var did = _storeItem('conflict', e);
+                h += '<tr data-click="' + did + '"><td>' + esc(trunc(e.dyad_name || e.side_a || '?', 30)) + '</td><td class="' + (best > 10 ? 'down' : best > 0 ? 'warn' : 'dim') + '">' + best + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1100,7 +1402,8 @@ function updateDrawer(data) {
             czones.forEach(function(e) {
                 var sev = e.severity || 'unknown';
                 var cls = sev === 'critical' ? 'down' : sev === 'high' ? 'warn' : 'dim';
-                h += '<tr><td>' + esc(trunc(e.country || '?', 25)) + '</td><td class="' + cls + '">' + esc(sev) + '</td></tr>';
+                var did = _storeItem('conflict', e);
+                h += '<tr data-click="' + did + '"><td>' + esc(trunc(e.country || '?', 25)) + '</td><td class="' + cls + '">' + esc(sev) + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1174,7 +1477,8 @@ function updateDrawer(data) {
         if (aiItems.length) {
             h += '<table class="dtable"><thead><tr><th>Paper/Post</th><th>Source</th><th>Age</th></tr></thead><tbody>';
             aiItems.slice(0, 12).forEach(function(item) {
-                h += '<tr><td><a href="' + esc(item.link || '#') + '" target="_blank">' + esc(trunc(item.title || '?', 40)) + '</a></td><td class="dim">' + esc(item.feed_name || '\u2014') + '</td><td class="dim">' + ago(item.published) + '</td></tr>';
+                var did = _storeItem('ai', item);
+                h += '<tr data-click="' + did + '"><td class="accent">' + esc(trunc(item.title || '?', 40)) + '</td><td class="dim">' + esc(item.feed_name || '\u2014') + '</td><td class="dim">' + ago(item.published) + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1205,7 +1509,8 @@ function updateDrawer(data) {
             h += '<table class="dtable"><thead><tr><th>Outbreak</th><th>Org</th><th>Age</th></tr></thead><tbody>';
             healthItems.slice(0, 12).forEach(function(item) {
                 var isHigh = item.high_concern;
-                h += '<tr><td' + (isHigh ? ' class="down"' : '') + '>' + esc(trunc(item.title || '?', 40)) + '</td><td class="dim">' + esc(item.organization || '\u2014') + '</td><td class="dim">' + ago(item.published) + '</td></tr>';
+                var did = _storeItem('health', item);
+                h += '<tr data-click="' + did + '"><td' + (isHigh ? ' class="down"' : '') + '>' + esc(trunc(item.title || '?', 40)) + '</td><td class="dim">' + esc(item.organization || '\u2014') + '</td><td class="dim">' + ago(item.published) + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1227,7 +1532,8 @@ function updateDrawer(data) {
                 var rs = e.risk_score || 0;
                 var rCls = rs >= 80 ? 'crit' : rs >= 50 ? 'high' : rs >= 30 ? 'high' : '';
                 var riskPct = Math.min(100, rs);
-                h += '<tr><td class="bright">' + esc(e.country || '?') + '</td><td class="dim">' + esc(e.election_type || '\u2014') + '</td><td class="dim">' + esc(e.date || '\u2014') + '</td><td>' +
+                var did = _storeItem('election', e);
+                h += '<tr data-click="' + did + '"><td class="bright">' + esc(e.country || '?') + '</td><td class="dim">' + esc(e.election_type || '\u2014') + '</td><td class="dim">' + esc(e.date || '\u2014') + '</td><td>' +
                     '<div class="risk-bar"><div class="risk-fill ' + (rs >= 80 ? 'crit' : rs >= 50 ? 'high' : rs >= 20 ? 'med' : 'low') + '" style="width:' + riskPct + '%"></div></div>' +
                     '</td></tr>';
             });
@@ -1281,7 +1587,8 @@ function updateDrawer(data) {
         if (posts.length) {
             h += '<table class="dtable"><thead><tr><th>Post</th><th>Score</th><th>Sub</th></tr></thead><tbody>';
             posts.slice(0, 10).forEach(function(p) {
-                h += '<tr><td><a href="' + esc(p.url || '#') + '" target="_blank">' + esc(trunc(p.title || '?', 35)) + '</a></td><td class="bright">' + fmtBigPlain(p.score || 0) + '</td><td class="dim">' + esc(p.subreddit || '\u2014') + '</td></tr>';
+                var did = _storeItem('social', p);
+                h += '<tr data-click="' + did + '"><td class="accent">' + esc(trunc(p.title || '?', 35)) + '</td><td class="bright">' + fmtBigPlain(p.score || 0) + '</td><td class="dim">' + esc(p.subreddit || '\u2014') + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -1336,6 +1643,16 @@ function updateDrawer(data) {
     }
 
     $('#drawerBody').innerHTML = safe(h);
+
+    // Attach click delegation for data-click rows
+    $('#drawerBody').addEventListener('click', function(e) {
+        var row = e.target.closest('[data-click]');
+        if (row) {
+            e.preventDefault();
+            e.stopPropagation();
+            showDrawerDetail(row.getAttribute('data-click'));
+        }
+    });
 }
 
 // ════════════ NEWS TICKER ════════════

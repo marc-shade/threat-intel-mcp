@@ -14,6 +14,7 @@ Phase 4: Reports — daily brief, country dossier, threat landscape (+3 = 36 too
 Phase 5: Analysis — focal points, signal summary, temporal anomalies, CII v2 (+3 = 39 tools).
 Phase 6: Military & infrastructure intelligence (+6 = 45 tools).
 Phase 7: Health, sanctions, elections, shipping, social, nuclear, alerts, trends (+10 = 55 tools).
+Phase 8: Service status monitoring, RSS expansion (80+ feeds, 14 categories) (+1 = 56 tools).
 """
 
 import asyncio
@@ -29,7 +30,7 @@ from mcp.types import Tool, TextContent
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear
+from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status
 from .reports import generator as report_gen
 
 logging.basicConfig(
@@ -574,6 +575,17 @@ TOOLS: list[Tool] = [
         description="Analyze weekly trends from temporal baselines. Reports volatility (coefficient of variation) and current anomalies across all tracked metrics.",
         inputSchema={"type": "object", "properties": {}},
     ),
+    # --- Service Status (1 tool) ---
+    Tool(
+        name="intel_service_status",
+        description="Monitor cloud service provider status (AWS, Azure, GCP, Cloudflare, GitHub). Shows active incidents and recent outages. Optional: provider (aws/azure/gcp/cloudflare/github).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "provider": {"type": "string", "description": "Filter by provider (aws, azure, gcp, cloudflare, github)"},
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
@@ -810,6 +822,12 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         case "intel_threat_landscape":
             return await report_gen.generate_threat_landscape(output_dir=arguments.get("output_dir"))
 
+        # Service Status
+        case "intel_service_status":
+            return await service_status.fetch_service_status(
+                fetcher, provider=arguments.get("provider"),
+            )
+
         # System
         case "intel_status":
             return {
@@ -820,8 +838,8 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "economic": ["eia", "fred", "world-bank"],
                     "natural": ["usgs", "nasa-firms"],
                     "conflict": ["acled", "ucdp", "hdx"],
-                    "military": ["opensky", "hexdb"],
-                    "infrastructure": ["cloudflare-radar", "nga-msi"],
+                    "military": ["opensky", "hexdb", "adsblol"],
+                    "infrastructure": ["cloudflare-radar", "ioda", "nga-msi"],
                     "maritime": ["nga-msi"],
                     "climate": ["open-meteo"],
                     "news": ["rss-aggregator", "gdelt"],
@@ -832,12 +850,13 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "cyber": ["feodo-tracker", "cisa-kev", "sans-dshield", "urlhaus"],
                     "space_weather": ["noaa-swpc"],
                     "ai_watch": ["arxiv", "huggingface", "ai-news-rss"],
-                    "health": ["who-don", "promed", "cidrap"],
+                    "health": ["who-don", "cdc", "outbreak-news"],
                     "sanctions": ["ofac-sdn"],
                     "elections": ["election-calendar"],
                     "shipping": ["yahoo-finance"],
                     "social": ["reddit-public"],
                     "nuclear": ["usgs-nuclear-monitor"],
+                    "service_status": ["aws", "azure", "gcp", "cloudflare", "github"],
                 },
             }
 
