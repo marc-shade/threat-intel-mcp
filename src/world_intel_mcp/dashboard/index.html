@@ -401,6 +401,36 @@ a { color: var(--accent); text-decoration: none; }
 .mk-waterway:hover { transform: rotate(45deg) scale(1.5); opacity: 1; }
 .cable-corridor { cursor: pointer; transition: fill-opacity 0.15s; }
 .cable-corridor:hover { fill-opacity: 0.1 !important; stroke-opacity: 0.5 !important; }
+.mk-plane {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(0,200,255,0.5); cursor: pointer;
+    transition: transform 0.15s;
+}
+.mk-plane.comm { background: rgba(0,200,255,0.7); }
+.mk-plane:hover { transform: scale(3); }
+.mk-traffic {
+    border-radius: 50%;
+    border: 2px solid rgba(255,160,0,0.5);
+    background: radial-gradient(circle, rgba(255,160,0,0.5) 30%, rgba(255,160,0,0) 70%);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-traffic:hover { transform: scale(1.3); }
+.mk-traffic.crit { border-color: rgba(255,59,59,0.6); background: radial-gradient(circle, rgba(255,59,59,0.5) 30%, rgba(255,59,59,0) 70%); }
+.mk-navwarn {
+    width: 6px; height: 6px; border-radius: 1px;
+    transform: rotate(45deg);
+    background: rgba(255,200,50,0.7);
+    border: 1px solid rgba(255,200,50,0.5);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-navwarn:hover { transform: rotate(45deg) scale(1.8); }
+.mk-cam {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(120,220,255,0.6);
+    border: 1px solid rgba(120,220,255,0.4);
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-cam:hover { transform: scale(1.8); }
 @keyframes glow-gold {
     0%,100% { box-shadow: 0 0 4px rgba(240,184,64,0.3); }
     50% { box-shadow: 0 0 16px rgba(240,184,64,0.7); }
@@ -519,6 +549,30 @@ a { color: var(--accent); text-decoration: none; }
         <span class="layer-count" id="cntExposure">0</span>
         <div class="toggle on" style="--lc:#e040fb"><div class="knob"></div></div>
     </div>
+    <div class="layer-row" data-layer="airtraffic">
+        <span class="layer-dot" style="background:#00c8ff"></span>
+        <span class="layer-label">Air Traffic</span>
+        <span class="layer-count" id="cntAirTraffic">0</span>
+        <div class="toggle on" style="--lc:#00c8ff"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="traffic">
+        <span class="layer-dot" style="background:#ffa000"></span>
+        <span class="layer-label">Road Traffic</span>
+        <span class="layer-count" id="cntTraffic">0</span>
+        <div class="toggle on" style="--lc:#ffa000"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="navwarnings">
+        <span class="layer-dot" style="background:#ffc832"></span>
+        <span class="layer-label">Nav Warnings</span>
+        <span class="layer-count" id="cntNavWarn">0</span>
+        <div class="toggle on" style="--lc:#ffc832"><div class="knob"></div></div>
+    </div>
+    <div class="layer-row" data-layer="webcams">
+        <span class="layer-dot" style="background:#78dcff"></span>
+        <span class="layer-label">Webcams</span>
+        <span class="layer-count" id="cntCams">0</span>
+        <div class="toggle on" style="--lc:#78dcff"><div class="knob"></div></div>
+    </div>
 </aside>
 
 <!-- DATA DRAWER -->
@@ -565,7 +619,7 @@ function ago(ts) { if (!ts) return '\u2014'; var s = Math.floor((Date.now() - ne
 var latestData = null;
 var map = null;
 var mapLayers = {};
-var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true };
+var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true };
 var drawerOpen = false;
 
 // ════════════ MAP INIT ════════════
@@ -581,6 +635,10 @@ function initMap() {
     mapLayers.nuclear = L.layerGroup().addTo(map);
     mapLayers.infra = L.layerGroup().addTo(map);
     mapLayers.exposure = L.layerGroup().addTo(map);
+    mapLayers.airtraffic = L.layerGroup().addTo(map);
+    mapLayers.traffic = L.layerGroup().addTo(map);
+    mapLayers.navwarnings = L.layerGroup().addTo(map);
+    mapLayers.webcams = L.layerGroup().addTo(map);
 }
 
 // ════════════ LAYER TOGGLES ════════════
@@ -605,8 +663,8 @@ $('#drawerToggle').addEventListener('click', function() {
 });
 
 // ════════════ DETAIL MODAL ════════════
-var COLORS = { earthquake: 'var(--red)', military: 'var(--blue)', conflict: 'var(--amber)', fire: 'var(--gold)', convergence: 'var(--purple)', nuclear: 'var(--green)', military_base: 'var(--teal)', port: 'var(--blue)', nuclear_facility: 'var(--gold)', pipeline: 'var(--purple)', exposure: '#e040fb', waterway: 'var(--accent)', cable: 'var(--blue)' };
-var LABELS = { earthquake: 'EARTHQUAKE', military: 'MILITARY AIRCRAFT', conflict: 'CONFLICT EVENT', fire: 'WILDFIRE CLUSTER', convergence: 'SIGNAL CONVERGENCE', nuclear: 'NUCLEAR MONITOR', military_base: 'MILITARY BASE', port: 'STRATEGIC PORT', nuclear_facility: 'NUCLEAR FACILITY', pipeline: 'PIPELINE', exposure: 'POPULATION EXPOSURE', waterway: 'STRATEGIC WATERWAY', cable: 'CABLE CORRIDOR' };
+var COLORS = { earthquake: 'var(--red)', military: 'var(--blue)', conflict: 'var(--amber)', fire: 'var(--gold)', convergence: 'var(--purple)', nuclear: 'var(--green)', military_base: 'var(--teal)', port: 'var(--blue)', nuclear_facility: 'var(--gold)', pipeline: 'var(--purple)', exposure: '#e040fb', waterway: 'var(--accent)', cable: 'var(--blue)', airtraffic: '#00c8ff', traffic_city: '#ffa000', navwarn: '#ffc832', webcam: '#78dcff' };
+var LABELS = { earthquake: 'EARTHQUAKE', military: 'MILITARY AIRCRAFT', conflict: 'CONFLICT EVENT', fire: 'WILDFIRE CLUSTER', convergence: 'SIGNAL CONVERGENCE', nuclear: 'NUCLEAR MONITOR', military_base: 'MILITARY BASE', port: 'STRATEGIC PORT', nuclear_facility: 'NUCLEAR FACILITY', pipeline: 'PIPELINE', exposure: 'POPULATION EXPOSURE', waterway: 'STRATEGIC WATERWAY', cable: 'CABLE CORRIDOR', airtraffic: 'AIRCRAFT', traffic_city: 'TRAFFIC CONGESTION', navwarn: 'NAVIGATION WARNING', webcam: 'WEBCAM' };
 
 function showDetail(type, d) {
     var title = '', subtitle = '', fields = [], link = '';
@@ -915,6 +973,51 @@ function showDrawerDetail(id) {
             ['Summary', trunc(d.summary || '', 500)]
         ];
         link = d.link || '';
+    } else if (type === 'airtraffic') {
+        title = d.callsign || 'Aircraft';
+        subtitle = d.origin || '';
+        fields = [
+            ['Callsign', d.callsign || '\u2014'],
+            ['Origin', d.origin || '\u2014'],
+            ['Altitude', d.alt != null ? d.alt + ' m (' + Math.round(d.alt * 3.281) + ' ft)' : '\u2014'],
+            ['Type', d.commercial ? 'Commercial' : 'General Aviation'],
+            ['Coordinates', d.lat != null ? d.lat + ', ' + d.lon : '\u2014']
+        ];
+    } else if (type === 'traffic_city') {
+        title = d.name || 'City';
+        subtitle = d.country || '';
+        var congPct = d.congestion_pct || 0;
+        fields = [
+            ['City', d.name || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Congestion', congPct + '%', congPct >= 50 ? 'crit' : congPct >= 25 ? 'high' : ''],
+            ['Current Speed', d.current_speed_kmh + ' km/h'],
+            ['Free Flow', d.free_flow_speed_kmh + ' km/h'],
+            ['Coordinates', d.lat + ', ' + d.lon]
+        ];
+    } else if (type === 'webcam') {
+        title = d.title || 'Camera';
+        subtitle = (d.city || '') + (d.country ? ', ' + d.country : '');
+        fields = [
+            ['Title', d.title || '\u2014'],
+            ['City', d.city || '\u2014'],
+            ['Country', d.country || '\u2014'],
+            ['Status', d.status || '\u2014'],
+            ['Coordinates', d.lat != null ? d.lat + ', ' + d.lon : '\u2014']
+        ];
+        link = d.player_url || '';
+    } else if (type === 'navwarn') {
+        title = 'NAVAREA ' + (d.navarea || '?') + ' \u2014 ' + (d.id || '');
+        subtitle = d.status || '';
+        fields = [
+            ['ID', d.id || '\u2014'],
+            ['NAVAREA', d.navarea || '\u2014'],
+            ['Subregion', d.subregion || '\u2014'],
+            ['Status', d.status || '\u2014'],
+            ['Issued', d.issue_date || '\u2014'],
+            ['Authority', d.authority || '\u2014'],
+            ['Text', d.text || '\u2014']
+        ];
     } else {
         title = d.title || d.name || JSON.stringify(d).slice(0, 80);
         fields = Object.keys(d).slice(0, 12).map(function(k) { return [k, trunc(String(d[k] || ''), 120)]; });
@@ -1230,6 +1333,78 @@ function updateMapExposure(data) {
             });
         });
         circle.addTo(mapLayers.exposure);
+    });
+}
+
+function updateMapAirTraffic(data) {
+    mapLayers.airtraffic.clearLayers();
+    if (!data || data.error) { $('#cntAirTraffic').textContent = '0'; return; }
+    var positions = data.positions || [];
+    $('#cntAirTraffic').textContent = data.total_aircraft || positions.length;
+    positions.forEach(function(p) {
+        if (p.lat == null || p.lon == null) return;
+        var mk = L.marker([p.lat, p.lon], {
+            icon: L.divIcon({ className: 'mk-plane' + (p.commercial ? ' comm' : ''), iconSize: [4, 4], iconAnchor: [2, 2] })
+        });
+        var tip = (p.callsign || '?') + ' \u2014 ' + (p.origin || '?');
+        if (p.alt) tip += ' @ ' + p.alt + 'm';
+        mk.bindTooltip(tip, { className: 'mk-tip', direction: 'top', offset: [0, -3] });
+        mk.on('click', function() { showDetail('airtraffic', p); });
+        mk.addTo(mapLayers.airtraffic);
+    });
+}
+
+function updateMapTraffic(data) {
+    mapLayers.traffic.clearLayers();
+    if (!data || data.error) { $('#cntTraffic').textContent = '0'; return; }
+    var cities = data.cities || [];
+    $('#cntTraffic').textContent = cities.length;
+    cities.forEach(function(c) {
+        if (c.lat == null || c.lon == null) return;
+        var pct = c.congestion_pct || 0;
+        var size = Math.max(14, Math.min(30, pct / 2 + 10));
+        var cls = pct >= 50 ? ' crit' : '';
+        var mk = L.marker([c.lat, c.lon], {
+            icon: L.divIcon({ className: 'mk-traffic' + cls, iconSize: [size, size], iconAnchor: [size/2, size/2] })
+        });
+        mk.bindTooltip(esc(c.name) + ' ' + pct + '% congestion', { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        mk.on('click', function() { showDetail('traffic_city', c); });
+        mk.addTo(mapLayers.traffic);
+    });
+}
+
+function updateMapNavWarnings(data) {
+    mapLayers.navwarnings.clearLayers();
+    if (!data || data.error) { $('#cntNavWarn').textContent = '0'; return; }
+    var warnings = data.warnings || [];
+    var mapped = 0;
+    warnings.forEach(function(w) {
+        if (w.lat == null || w.lon == null) return;
+        mapped++;
+        var mk = L.marker([w.lat, w.lon], {
+            icon: L.divIcon({ className: 'mk-navwarn', iconSize: [6, 6], iconAnchor: [3, 3] })
+        });
+        var tip = 'NAVAREA ' + (w.navarea || '?') + ' ' + (w.id || '');
+        mk.bindTooltip(tip, { className: 'mk-tip', direction: 'top', offset: [0, -4] });
+        mk.on('click', function() { showDetail('navwarn', w); });
+        mk.addTo(mapLayers.navwarnings);
+    });
+    $('#cntNavWarn').textContent = mapped;
+}
+
+function updateMapWebcams(data) {
+    mapLayers.webcams.clearLayers();
+    if (!data || data.error) { $('#cntCams').textContent = '0'; return; }
+    var cams = data.cameras || [];
+    $('#cntCams').textContent = cams.length;
+    cams.forEach(function(cam) {
+        if (cam.lat == null || cam.lon == null) return;
+        var mk = L.marker([cam.lat, cam.lon], {
+            icon: L.divIcon({ className: 'mk-cam', iconSize: [7, 7], iconAnchor: [3.5, 3.5] })
+        });
+        mk.bindTooltip(esc(cam.title || 'Camera') + '<br><span style="opacity:0.7">' + esc(cam.city || '') + '</span>', { className: 'mk-tip', direction: 'top', offset: [0, -4] });
+        mk.on('click', function() { showDetail('webcam', cam); });
+        mk.addTo(mapLayers.webcams);
     });
 }
 
@@ -2051,7 +2226,11 @@ function updateAll(data) {
         ['convergence', function() { updateMapConvergence(data.signal_convergence); }],
         ['nuclear', function() { updateMapNuclear(data.nuclear_monitor); }],
         ['infra', function() { updateMapInfra(data); }],
-        ['exposure', function() { updateMapExposure(data.population_exposure); }]
+        ['exposure', function() { updateMapExposure(data.population_exposure); }],
+        ['airtraffic', function() { updateMapAirTraffic(data.domestic_flights); }],
+        ['traffic', function() { updateMapTraffic(data.traffic_flow); }],
+        ['navwarnings', function() { updateMapNavWarnings(data.nav_warnings); }],
+        ['webcams', function() { updateMapWebcams(data.webcams); }]
     ];
     mapUpdates.forEach(function(pair) {
         try { pair[1](); } catch(e) { console.warn('updateAll: ' + pair[0] + ' failed:', e); }

@@ -6,7 +6,6 @@ No API key required.
 """
 
 import logging
-import os
 import re
 from datetime import datetime, timezone
 
@@ -56,6 +55,29 @@ def _is_active(warning: dict) -> bool:
     return cancel is None or cancel == ""
 
 
+_COORD_RE = re.compile(
+    r"(\d{1,3})-(\d{1,2}(?:\.\d+)?)\s*([NS])\s+"
+    r"(\d{1,3})-(\d{1,2}(?:\.\d+)?)\s*([EW])",
+)
+
+
+def _extract_coords(text: str) -> tuple[float | None, float | None]:
+    """Extract first lat/lon pair from NGA warning text.
+
+    Parses formats like '22-16.65N 097-44.48W' into decimal degrees.
+    """
+    m = _COORD_RE.search(text)
+    if not m:
+        return None, None
+    lat = int(m.group(1)) + float(m.group(2)) / 60
+    if m.group(3) == "S":
+        lat = -lat
+    lon = int(m.group(4)) + float(m.group(5)) / 60
+    if m.group(6) == "W":
+        lon = -lon
+    return round(lat, 4), round(lon, 4)
+
+
 def _parse_warning(warning: dict) -> dict:
     """Extract structured fields from a single NGA broadcast warning."""
     msg_year = warning.get("msgYear", "")
@@ -69,6 +91,8 @@ def _parse_warning(warning: dict) -> dict:
     if len(text) > _MAX_TEXT_LENGTH:
         text = text[:_MAX_TEXT_LENGTH] + "..."
 
+    lat, lon = _extract_coords(text)
+
     return {
         "id": warning_id,
         "navarea": warning.get("navArea", ""),
@@ -78,6 +102,8 @@ def _parse_warning(warning: dict) -> dict:
         "cancel_date": cancel_date if cancel_date else None,
         "text": text,
         "authority": warning.get("authority", "NGA"),
+        "lat": lat,
+        "lon": lon,
     }
 
 

@@ -218,7 +218,11 @@ async def fetch_domestic_flights(fetcher: Fetcher) -> dict:
     country_counts: dict[str, int] = {}
     total = 0
 
-    for s in states:
+    # Sample every Nth aircraft for map markers (keep payload <200KB)
+    sample_step = 10
+    sampled: list[dict] = []
+
+    for idx, s in enumerate(states):
         if not isinstance(s, list) or len(s) < 15:
             continue
         if s[8]:  # on_ground
@@ -226,17 +230,29 @@ async def fetch_domestic_flights(fetcher: Fetcher) -> dict:
 
         total += 1
         lat, lon = s[6], s[5]
-        callsign = s[1]
+        callsign = (s[1] or "").strip()
         origin = s[2] or "Unknown"
 
         region = _classify_region(lat, lon)
+        is_comm = _is_commercial(callsign)
         by_region[region]["count"] += 1
-        if _is_commercial(callsign):
+        if is_comm:
             by_region[region]["commercial"] += 1
         else:
             by_region[region]["general"] += 1
 
         country_counts[origin] = country_counts.get(origin, 0) + 1
+
+        # Sample for map display
+        if idx % sample_step == 0 and lat is not None and lon is not None:
+            sampled.append({
+                "lat": round(lat, 2),
+                "lon": round(lon, 2),
+                "callsign": callsign or None,
+                "origin": origin,
+                "alt": round(s[7]) if s[7] else None,
+                "commercial": is_comm,
+            })
 
     # Remove empty regions
     by_region = {k: v for k, v in by_region.items() if v["count"] > 0}
@@ -247,6 +263,7 @@ async def fetch_domestic_flights(fetcher: Fetcher) -> dict:
         "total_aircraft": total,
         "by_region": by_region,
         "busiest_origins": [{"country": c, "count": n} for c, n in busiest],
+        "positions": sampled,
         "source": "opensky-domestic",
         "timestamp": _utc_now_iso(),
     }
