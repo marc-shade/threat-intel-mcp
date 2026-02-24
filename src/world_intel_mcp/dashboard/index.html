@@ -94,13 +94,14 @@ a { color: var(--accent); text-decoration: none; }
 #topBar {
     position: fixed; top: 10px; left: 10px; right: 10px; z-index: 50;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px; gap: 12px;
+    padding: 8px 16px; gap: 8px;
+    flex-wrap: wrap;
 }
 .hud-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .logo-mark { font-size: 1.1rem; line-height: 1; }
 .logo-text { font-weight: 700; font-size: 0.9rem; letter-spacing: 2px; color: var(--bright); }
 .logo-dim { font-weight: 400; color: var(--dim); }
-.hud-stats { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; flex: 1; min-width: 0; }
+.hud-stats { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; flex: 1; min-width: 0; max-height: 52px; overflow: hidden; }
 .stat-pill {
     padding: 3px 10px; border-radius: 6px;
     background: rgba(0,0,0,0.35); border: 1px solid var(--border);
@@ -126,8 +127,9 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ═══════════════ LAYER PANEL ═══════════════ */
 #layers {
-    position: fixed; top: 66px; left: 10px; z-index: 40;
+    position: fixed; top: var(--layers-top, 66px); left: 10px; z-index: 40;
     width: 200px; padding: 12px 14px;
+    transition: top 0.2s;
 }
 .panel-title {
     font-size: 0.62rem; font-weight: 600; letter-spacing: 2.5px;
@@ -433,6 +435,20 @@ a { color: var(--accent); text-decoration: none; }
     cursor: pointer; transition: transform 0.15s;
 }
 .mk-cam:hover { transform: scale(1.8); }
+.mk-climate {
+    border-radius: 50%;
+    cursor: pointer; transition: transform 0.15s;
+}
+.mk-climate:hover { transform: scale(1.3); }
+.mk-climate.hot { background: radial-gradient(circle, rgba(255,68,68,0.8) 20%, rgba(255,68,68,0) 70%); border: 2px solid rgba(255,68,68,0.6); }
+.mk-climate.warm { background: radial-gradient(circle, rgba(255,159,28,0.7) 20%, rgba(255,159,28,0) 70%); border: 2px solid rgba(255,159,28,0.5); }
+.mk-climate.cool { background: radial-gradient(circle, rgba(100,181,246,0.7) 20%, rgba(100,181,246,0) 70%); border: 2px solid rgba(100,181,246,0.5); }
+.mk-climate.cold { background: radial-gradient(circle, rgba(77,168,255,0.8) 20%, rgba(77,168,255,0) 70%); border: 2px solid rgba(77,168,255,0.6); }
+.mk-climate.sig { animation: glow-climate 2s ease-in-out infinite; }
+@keyframes glow-climate {
+    0%,100% { box-shadow: 0 0 4px rgba(255,107,107,0.3); }
+    50% { box-shadow: 0 0 18px rgba(255,107,107,0.7); }
+}
 @keyframes glow-gold {
     0%,100% { box-shadow: 0 0 4px rgba(240,184,64,0.3); }
     50% { box-shadow: 0 0 16px rgba(240,184,64,0.7); }
@@ -462,7 +478,12 @@ a { color: var(--accent); text-decoration: none; }
     #drawer.closed { transform: translateY(100%); }
     .drawer-tab { left: 50%; top: -30px; transform: translateX(-50%); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--border); border-bottom: none; width: 56px; height: 26px; }
     #detail { width: 100%; }
-    #layers { width: 160px; }
+    #layers { width: 140px; max-height: 36px; overflow: hidden; transition: max-height 0.3s var(--ease); }
+    #layers.layers-open { max-height: 600px; }
+    .panel-title { cursor: pointer; position: relative; }
+    .panel-title::after { content: '\25BE'; position: absolute; right: 0; opacity: 0.4; font-size: 0.5rem; }
+    #layers.layers-open .panel-title::after { content: '\25B4'; }
+    .layer-row { padding: 6px 0; }
     .hud-stats { display: none; }
     #alertBanner { left: 10px; right: 10px; }
 }
@@ -614,6 +635,12 @@ a { color: var(--accent); text-decoration: none; }
         <span class="layer-count" id="cntCams">0</span>
         <div class="toggle on" style="--lc:#78dcff"><div class="knob"></div></div>
     </div>
+    <div class="layer-row" data-layer="climate">
+        <span class="layer-dot" style="background:#ff6b6b"></span>
+        <span class="layer-label">Climate</span>
+        <span class="layer-count" id="cntClimate">0</span>
+        <div class="toggle on" style="--lc:#ff6b6b"><div class="knob"></div></div>
+    </div>
 </aside>
 
 <!-- DATA DRAWER -->
@@ -660,7 +687,7 @@ function ago(ts) { if (!ts) return '\u2014'; var s = Math.floor((Date.now() - ne
 var latestData = null;
 var map = null;
 var mapLayers = {};
-var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true };
+var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true, climate: true };
 // Restore saved layer toggles from localStorage
 try { var _saved = JSON.parse(localStorage.getItem('phoenix-layers')); if (_saved) { for (var _k in _saved) { if (layerState.hasOwnProperty(_k)) layerState[_k] = _saved[_k]; } } } catch(e) {}
 var drawerOpen = false;
@@ -694,6 +721,7 @@ function initMap() {
     mapLayers.traffic = L.layerGroup().addTo(map);
     mapLayers.navwarnings = L.markerClusterGroup(clusterOpts(null, 40)).addTo(map);
     mapLayers.webcams = L.layerGroup().addTo(map);
+    mapLayers.climate = L.layerGroup().addTo(map);
 }
 
 // ════════════ LAYER TOGGLES ════════════
@@ -899,6 +927,19 @@ function showDetail(type, d) {
             ['Authority', d.authority || '\u2014'],
             ['Text', d.text || '\u2014']
         ];
+    } else if (type === 'climate') {
+        var ta = d.temp_anomaly_c || 0;
+        title = (d.name || d.zone || 'Climate Zone');
+        subtitle = (ta > 0 ? '+' : '') + ta.toFixed(1) + '\u00B0C anomaly';
+        fields = [
+            ['Zone', d.name || d.zone || '\u2014'],
+            ['Temp Anomaly', (ta > 0 ? '+' : '') + ta.toFixed(1) + '\u00B0C', Math.abs(ta) > 2 ? 'crit' : Math.abs(ta) > 1 ? 'high' : ''],
+            ['Current Avg', d.current_avg_temp_c != null ? d.current_avg_temp_c.toFixed(1) + '\u00B0C' : '\u2014'],
+            ['Baseline Avg', d.baseline_avg_temp_c != null ? d.baseline_avg_temp_c.toFixed(1) + '\u00B0C' : '\u2014'],
+            ['Precip Anomaly', d.precip_anomaly_pct != null ? (d.precip_anomaly_pct > 0 ? '+' : '') + d.precip_anomaly_pct.toFixed(0) + '%' : '\u2014', Math.abs(d.precip_anomaly_pct || 0) > 50 ? 'high' : ''],
+            ['Significant', d.is_significant ? 'YES' : 'No', d.is_significant ? 'crit' : 'ok'],
+            ['Coordinates', d.lat != null ? d.lat.toFixed(3) + ', ' + d.lon.toFixed(3) : '\u2014']
+        ];
     }
 
     var hdr = '<div class="detail-cat"><span class="detail-cat-dot" style="background:' + c + ';--cat-color:' + c + '"></span><span class="detail-cat-label">' + esc(LABELS[type] || type) + '</span></div>' +
@@ -936,6 +977,7 @@ $('#detailClose').addEventListener('click', closeDetail);
 
 // ════════════ DRAWER DETAIL TYPES ════════════
 // Extend showDetail to handle drawer item types
+COLORS.climate = '#ff6b6b'; LABELS.climate = 'CLIMATE ZONE';
 COLORS.news = 'var(--accent)'; LABELS.news = 'NEWS ARTICLE';
 COLORS.cyber = 'var(--red)'; LABELS.cyber = 'CYBER THREAT';
 COLORS.health = 'var(--pink)'; LABELS.health = 'HEALTH ALERT';
@@ -1541,6 +1583,30 @@ function updateMapWebcams(data) {
         mk.bindTooltip(esc(cam.title || 'Camera') + '<br><span style="opacity:0.7">' + esc(cam.city || '') + '</span>', { className: 'mk-tip', direction: 'top', offset: [0, -4] });
         mk.on('click', function() { showDetail('webcam', cam); });
         mk.addTo(mapLayers.webcams);
+    });
+}
+
+function updateMapClimate(data) {
+    mapLayers.climate.clearLayers();
+    if (!data || data.error) { $('#cntClimate').textContent = '0'; return; }
+    var zones = data.anomalies || data.zones || data.data || [];
+    if (!Array.isArray(zones)) zones = Object.values(zones);
+    $('#cntClimate').textContent = zones.length;
+    zones.forEach(function(z) {
+        if (z.lat == null || z.lon == null) return;
+        var ta = z.temp_anomaly_c != null ? z.temp_anomaly_c : (z.temperature_anomaly || z.temp_anomaly || 0);
+        var abs = Math.abs(ta);
+        var cls = ta > 2 ? 'hot' : ta > 0 ? 'warm' : ta < -2 ? 'cold' : 'cool';
+        if (z.is_significant) cls += ' sig';
+        var size = Math.max(16, Math.min(32, abs * 6 + 14));
+        var mk = L.marker([z.lat, z.lon], {
+            icon: L.divIcon({ className: 'mk-climate ' + cls, iconSize: [size, size], iconAnchor: [size/2, size/2] })
+        });
+        var tip = esc(z.name || z.zone || '?') + ' ' + (ta > 0 ? '+' : '') + ta.toFixed(1) + '\u00B0C';
+        if (z.is_significant) tip += ' \u26A0';
+        mk.bindTooltip(tip, { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        mk.on('click', function() { showDetail('climate', z); });
+        mk.addTo(mapLayers.climate);
     });
 }
 
@@ -2371,7 +2437,8 @@ function updateAll(data) {
         ['airtraffic', function() { updateMapAirTraffic(data.domestic_flights); }],
         ['traffic', function() { updateMapTraffic(data.traffic_flow); }],
         ['navwarnings', function() { updateMapNavWarnings(data.nav_warnings); }],
-        ['webcams', function() { updateMapWebcams(data.webcams); }]
+        ['webcams', function() { updateMapWebcams(data.webcams); }],
+        ['climate', function() { updateMapClimate(data.climate_anomalies); }]
     ];
     mapUpdates.forEach(function(pair) {
         try { pair[1](); } catch(e) { console.warn('updateAll: ' + pair[0] + ' failed:', e); }
@@ -2395,6 +2462,9 @@ function updateAll(data) {
     $('#feedCount').textContent = okCount + '/' + feedKeys.length + ' feeds';
 
     if (data.timestamp) { $('#lastUpdate').textContent = new Date(data.timestamp).toLocaleTimeString(); }
+
+    // Reposition layer panel after HUD stats may have changed topbar height
+    if (typeof _syncLayersTop === 'function') setTimeout(_syncLayersTop, 50);
 }
 
 // ════════════ SSE CONNECTION ════════════
@@ -2456,7 +2526,7 @@ $('#drawerBody').addEventListener('click', function(e) {
 });
 
 // HUD pill click-to-zoom
-var HUD_LAYER_MAP = { 'Quakes': 'quakes', 'Aircraft': 'military', 'Conflict': 'conflict', 'Fires': 'fires', 'Exposed': 'exposure', 'Airborne': 'airtraffic', 'Traffic': 'traffic', 'Cams': 'webcams', 'Nuke Flag': 'nuclear' };
+var HUD_LAYER_MAP = { 'Quakes': 'quakes', 'Aircraft': 'military', 'Conflict': 'conflict', 'Fires': 'fires', 'Exposed': 'exposure', 'Airborne': 'airtraffic', 'Traffic': 'traffic', 'Cams': 'webcams', 'Nuke Flag': 'nuclear', 'Climate': 'climate' };
 $('#hudStats').addEventListener('click', function(e) {
     var pill = e.target.closest('.stat-pill');
     if (!pill) return;
@@ -2537,6 +2607,10 @@ function performSearch(q) {
     _scan((latestData.strategic_ports || {}).ports, 'lat', 'lon');
     _scan((latestData.nuclear_facilities || {}).facilities, 'lat', 'lon');
     _scan((latestData.nuclear_monitor || {}).sites, 'lat', 'lon');
+    var climSrc = latestData.climate_anomalies || {};
+    var climZones = climSrc.anomalies || climSrc.zones || climSrc.data || [];
+    if (!Array.isArray(climZones) && typeof climZones === 'object') climZones = Object.values(climZones);
+    _scan(climZones, 'lat', 'lon');
     if (coords.length > 0) {
         map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], maxZoom: coords.length === 1 ? 10 : 6 });
         $('#searchInput').style.borderColor = 'rgba(0,229,255,0.4)';
@@ -2545,6 +2619,22 @@ function performSearch(q) {
     }
     setTimeout(function() { $('#searchInput').style.borderColor = ''; }, 2000);
 }
+
+// Mobile: collapsible layer panel
+$('#layers .panel-title').addEventListener('click', function() {
+    $('#layers').classList.toggle('layers-open');
+});
+
+// Auto-position layer panel below topbar
+function _syncLayersTop() {
+    var tb = $('#topBar');
+    if (tb) {
+        var h = tb.offsetHeight;
+        document.documentElement.style.setProperty('--layers-top', (h + 16) + 'px');
+    }
+}
+_syncLayersTop();
+window.addEventListener('resize', _syncLayersTop);
 
 // Show loading indicator until SSE data arrives
 $('#hudStats').innerHTML = '<div class="stat-pill"><span class="l" style="animation:pulse-dot 2s ease-in-out infinite">LOADING LIVE FEEDS</span></div>';
