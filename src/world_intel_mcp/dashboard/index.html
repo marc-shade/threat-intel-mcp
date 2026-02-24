@@ -700,12 +700,16 @@ function updateMapConflict(data) {
         var lat = e.latitude || e.lat, lon = e.longitude || e.lon;
         if (lat == null || lon == null) return;
         var fat = e.fatalities || e.best || 0;
-        var size = Math.max(8, Math.min(18, fat / 2 + 8));
+        var esc_level = e.escalation || 0;
+        var size = fat > 0 ? Math.max(8, Math.min(18, fat / 2 + 8)) : Math.max(8, esc_level * 3 + 6);
         var label = e.event_type || e.type_of_violence_label || '?';
         var mk = L.marker([Number(lat), Number(lon)], {
             icon: L.divIcon({ className: 'mk-conflict', iconSize: [size, size], iconAnchor: [size/2, size/2] })
         });
-        mk.bindTooltip(label + ' \u2014 ' + (e.country || '') + (fat > 0 ? ' (' + fat + ' fatal)' : ''), { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
+        var tip = label + ' \u2014 ' + (e.country || '');
+        if (fat > 0) tip += ' (' + fat + ' fatal)';
+        else if (e.severity) tip += ' [' + e.severity + ']';
+        mk.bindTooltip(tip, { className: 'mk-tip', direction: 'top', offset: [0, -size/2] });
         mk.on('click', function() { showDetail('conflict', e); });
         mk.addTo(mapLayers.conflict);
     });
@@ -811,7 +815,9 @@ function updateHudStats(data) {
     if (data.military_flights && !data.military_flights.error) {
         pills.push('<div class="stat-pill"><span class="v">' + (data.military_flights.count || 0) + '</span><span class="l">Aircraft</span></div>');
     }
-    var conflictSrc = (data.acled_events && !data.acled_events.error) ? data.acled_events : data.ucdp_events;
+    var conflictSrc = (data.acled_events && !data.acled_events.error && data.acled_events.count > 0) ? data.acled_events
+        : (data.ucdp_events && !data.ucdp_events.error && data.ucdp_events.count > 0) ? data.ucdp_events
+        : data.conflict_zones;
     if (conflictSrc && !conflictSrc.error) {
         var ac = conflictSrc.count || 0;
         pills.push('<div class="stat-pill"><span class="v' + (ac > 100 ? ' warn' : '') + '">' + ac + '</span><span class="l">Conflict</span></div>');
@@ -1084,6 +1090,18 @@ function updateDrawer(data) {
             h += '</tbody></table>';
         }
     }
+    if (data.conflict_zones && !data.conflict_zones.error) {
+        var czones = data.conflict_zones.events || [];
+        if (czones.length) {
+            h += '<div class="sub">Active Conflict Zones (' + (data.conflict_zones.count || czones.length) + ')</div><table class="dtable"><thead><tr><th>Zone</th><th>Severity</th></tr></thead><tbody>';
+            czones.forEach(function(e) {
+                var sev = e.severity || 'unknown';
+                var cls = sev === 'critical' ? 'down' : sev === 'high' ? 'warn' : 'dim';
+                h += '<tr><td>' + esc(trunc(e.country || '?', 25)) + '</td><td class="' + cls + '">' + esc(sev) + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
     if (data.displacement && !data.displacement.error) {
         var totals = data.displacement.global_totals || {};
         h += '<div class="sub">Global Displacement</div><div class="mini-row">';
@@ -1343,7 +1361,10 @@ function updateAll(data) {
     // Map layers
     updateMapQuakes(data.earthquakes);
     updateMapMilitary(data.military_flights);
-    updateMapConflict((data.acled_events && !data.acled_events.error) ? data.acled_events : data.ucdp_events);
+    var conflictData = (data.acled_events && !data.acled_events.error && data.acled_events.count > 0) ? data.acled_events
+        : (data.ucdp_events && !data.ucdp_events.error && data.ucdp_events.count > 0) ? data.ucdp_events
+        : data.conflict_zones;
+    updateMapConflict(conflictData);
     updateMapFires(data.wildfires);
     updateMapConvergence(data.signal_convergence);
     updateMapNuclear(data.nuclear_monitor);

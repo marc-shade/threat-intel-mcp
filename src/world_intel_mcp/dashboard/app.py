@@ -42,6 +42,7 @@ from world_intel_mcp.sources import (
     nuclear,
 )
 from world_intel_mcp.analysis.alerts import fetch_alert_digest, fetch_weekly_trends
+from world_intel_mcp.config.countries import INTEL_HOTSPOTS
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,35 @@ async def _fetch_overview() -> dict:
             result[name] = {"error": type(data).__name__ + ": " + str(data)[:120]}
         else:
             result[name] = data
+
+    # Conflict zone fallback: when both ACLED and UCDP fail, provide
+    # static hotspot data so the conflict layer is never empty.
+    acled = result.get("acled_events", {})
+    ucdp = result.get("ucdp_events", {})
+    acled_ok = not acled.get("error") and (acled.get("count") or 0) > 0
+    ucdp_ok = not ucdp.get("error") and (ucdp.get("count") or 0) > 0
+    if not acled_ok and not ucdp_ok:
+        escalation_labels = {1: "low", 2: "low", 3: "moderate", 4: "high", 5: "critical"}
+        hotspot_events = [
+            {
+                "latitude": h["lat"],
+                "longitude": h["lon"],
+                "country": name.replace("_", " ").title(),
+                "event_type": "conflict zone",
+                "type_of_violence_label": "active hotspot",
+                "fatalities": 0,
+                "best": 0,
+                "escalation": h["baseline_escalation"],
+                "severity": escalation_labels.get(h["baseline_escalation"], "unknown"),
+                "associated_countries": h.get("associated_countries", []),
+            }
+            for name, h in INTEL_HOTSPOTS.items()
+        ]
+        result["conflict_zones"] = {
+            "events": hotspot_events,
+            "count": len(hotspot_events),
+            "source": "intel-hotspots",
+        }
 
     # Attach source health + timestamp
     result["source_health"] = _breaker.status() if _breaker else {}
