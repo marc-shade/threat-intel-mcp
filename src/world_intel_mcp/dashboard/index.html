@@ -256,53 +256,6 @@ a { color: var(--accent); text-decoration: none; }
 }
 .detail-link:hover { background: rgba(0,229,255,0.15); }
 
-/* ═══════════════ LINK MODAL (iframe overlay) ═══════════════ */
-#linkModal {
-    position: fixed; inset: 0; z-index: 200;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
-}
-#linkModal.open { display: flex; }
-.lm-box {
-    width: min(90vw, 900px); height: min(85vh, 700px);
-    background: var(--card); border: 1px solid var(--glow);
-    border-radius: var(--radius); display: flex; flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-    overflow: hidden;
-}
-.lm-bar {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; border-bottom: 1px solid var(--border);
-    background: var(--panel); flex-shrink: 0;
-}
-.lm-title {
-    flex: 1; font-size: 0.78rem; font-weight: 600; color: var(--bright);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.lm-url {
-    font-family: var(--mono); font-size: 0.6rem; color: var(--dim);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;
-}
-.lm-btn {
-    background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15);
-    border-radius: 5px; color: var(--accent); font-size: 0.68rem;
-    padding: 4px 10px; cursor: pointer; white-space: nowrap;
-    transition: background 0.2s;
-}
-.lm-btn:hover { background: rgba(0,229,255,0.18); }
-.lm-close {
-    background: none; border: none; color: var(--dim); font-size: 1.4rem;
-    cursor: pointer; padding: 0 4px; transition: color 0.2s;
-}
-.lm-close:hover { color: var(--bright); }
-.lm-frame { flex: 1; border: none; background: #111; }
-.lm-blocked {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 16px;
-    color: var(--dim); font-size: 0.8rem; text-align: center; padding: 24px;
-}
-.lm-blocked .lm-btn { font-size: 0.8rem; padding: 8px 20px; }
-
 /* ═══════════════ CLICKABLE DRAWER ROWS ═══════════════ */
 .dtable tr[data-click] { cursor: pointer; }
 .dtable tr[data-click]:hover td { background: rgba(0,229,255,0.04) !important; }
@@ -565,23 +518,6 @@ a { color: var(--accent); text-decoration: none; }
     <div class="detail-body" id="detailBody"></div>
 </div>
 
-<!-- LINK MODAL -->
-<div id="linkModal">
-    <div class="lm-box">
-        <div class="lm-bar">
-            <span class="lm-title" id="lmTitle"></span>
-            <span class="lm-url" id="lmUrl"></span>
-            <button class="lm-btn" id="lmOpenTab">Open in Tab</button>
-            <button class="lm-close" id="lmClose">&times;</button>
-        </div>
-        <iframe class="lm-frame" id="lmFrame" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
-        <div class="lm-blocked" id="lmBlocked" style="display:none">
-            <div>This site blocked iframe embedding.</div>
-            <button class="lm-btn" id="lmFallbackOpen">Open in New Tab</button>
-        </div>
-    </div>
-</div>
-
 <!-- BOTTOM TICKER -->
 <div id="ticker" class="glass">
     <div class="ticker-label">INTEL</div>
@@ -797,40 +733,6 @@ function showDetail(type, d) {
 function closeDetail() { $('#detail').classList.remove('open'); }
 $('#detailClose').addEventListener('click', closeDetail);
 
-// ════════════ LINK MODAL (iframe for external URLs) ════════════
-var _lmUrl = '';
-function showLinkModal(url, title) {
-    _lmUrl = url;
-    $('#lmTitle').textContent = title || 'External Content';
-    $('#lmUrl').textContent = url;
-    $('#lmFrame').style.display = '';
-    $('#lmBlocked').style.display = 'none';
-    $('#lmFrame').src = url;
-    $('#linkModal').classList.add('open');
-    // Detect iframe load failure (many sites block it)
-    var frame = $('#lmFrame');
-    var timer = setTimeout(function() {
-        // If we get here without load, show fallback
-        try { var doc = frame.contentDocument; if (!doc || !doc.body || doc.body.innerHTML === '') { _showLmBlocked(); } }
-        catch(e) { _showLmBlocked(); }
-    }, 5000);
-    frame.onload = function() { clearTimeout(timer); };
-    frame.onerror = function() { clearTimeout(timer); _showLmBlocked(); };
-}
-function _showLmBlocked() {
-    $('#lmFrame').style.display = 'none';
-    $('#lmBlocked').style.display = 'flex';
-}
-function closeLinkModal() {
-    $('#linkModal').classList.remove('open');
-    $('#lmFrame').src = 'about:blank';
-    _lmUrl = '';
-}
-$('#lmClose').addEventListener('click', closeLinkModal);
-$('#lmOpenTab').addEventListener('click', function() { if (_lmUrl) window.open(_lmUrl, '_blank'); });
-$('#lmFallbackOpen').addEventListener('click', function() { if (_lmUrl) { window.open(_lmUrl, '_blank'); closeLinkModal(); } });
-$('#linkModal').addEventListener('click', function(e) { if (e.target === this) closeLinkModal(); });
-
 // ════════════ DRAWER DETAIL TYPES ════════════
 // Extend showDetail to handle drawer item types
 COLORS.news = 'var(--accent)'; LABELS.news = 'NEWS ARTICLE';
@@ -1011,17 +913,16 @@ document.addEventListener('click', function(e) {
     if (!a) return;
     var href = a.getAttribute('href');
     if (!href || href === '#' || href.startsWith('javascript:')) return;
-    // External link detection
+    // External links open in new tab
     if (href.startsWith('http://') || href.startsWith('https://') || a.hasAttribute('data-external')) {
         e.preventDefault();
         e.stopPropagation();
-        var title = a.textContent || a.title || href;
-        showLinkModal(href, title);
+        window.open(href, '_blank', 'noopener,noreferrer');
     }
 });
 
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeLinkModal(); closeDetail(); }
+    if (e.key === 'Escape') { closeDetail(); }
 });
 
 // ════════════ MAP MARKER MANAGEMENT ════════════
