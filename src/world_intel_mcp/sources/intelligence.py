@@ -17,6 +17,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 
 from ..fetcher import Fetcher
+from .conflict import acled_query
 from ..analysis.focal_points import detect_focal_points
 from ..analysis.signals import aggregate_country_signals
 from ..analysis.temporal import TemporalBaseline
@@ -48,7 +49,6 @@ _temporal = TemporalBaseline()
 # Constants
 # ---------------------------------------------------------------------------
 
-_ACLED_URL = "https://api.acleddata.com/acled/read"
 _WB_BASE = "https://api.worldbank.org/v2/country"
 _USGS_ENDPOINT = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 
@@ -186,27 +186,19 @@ async def fetch_country_brief(
         return values
 
     async def _fetch_acled_count() -> int:
-        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-        if not access_token:
-            return 0
-
         start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
         end_date = now.strftime("%Y-%m-%d")
 
-        params: dict = {
-            "key": access_token,
-            "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
-            "limit": 0,
-            "event_date": f"{start_date}|{end_date}",
-            "event_date_where": "BETWEEN",
-            "country": country_code,
-        }
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
+        data = await acled_query(
+            fetcher,
+            params={
+                "limit": 0,
+                "event_date": f"{start_date}|{end_date}",
+                "event_date_where": "BETWEEN",
+                "country": country_code,
+            },
             cache_key=f"intel:acled:count:{country_code}",
             cache_ttl=900,
-            params=params,
         )
         if data is None:
             return 0
@@ -296,39 +288,24 @@ async def fetch_risk_scores(
     """
     now = datetime.now(timezone.utc)
 
-    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-    if not access_token:
-        return {
-            "error": "ACLED_ACCESS_TOKEN not configured",
-            "note": "Free academic access at acleddata.com",
-            "source": "risk-analysis",
-            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-
     start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
     end_date = now.strftime("%Y-%m-%d")
 
-    params: dict = {
-        "key": access_token,
-        "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
-        "limit": 500,
-        "event_date": f"{start_date}|{end_date}",
-        "event_date_where": "BETWEEN",
-    }
-
-    data = await fetcher.get_json(
-        _ACLED_URL,
-        source="acled",
+    data = await acled_query(
+        fetcher,
+        params={
+            "limit": 500,
+            "event_date": f"{start_date}|{end_date}",
+            "event_date_where": "BETWEEN",
+        },
         cache_key="intel:risk:global:30d",
         cache_ttl=1800,
-        params=params,
     )
 
     if data is None:
-        logger.warning("ACLED API returned no data for risk scoring")
         return {
-            "countries": [],
-            "count": 0,
+            "error": "ACLED credentials not configured (ACLED_EMAIL + ACLED_PASSWORD)",
+            "note": "Free academic access at acleddata.com",
             "source": "risk-analysis",
             "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
@@ -419,23 +396,16 @@ async def _instability_single(
 
     async def _fetch_acled() -> list[dict]:
         """Fetch ACLED events for this country."""
-        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-        if not access_token:
-            return []
-
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
-            cache_key=f"intel:cii2:acled:{country_code}",
-            cache_ttl=1800,
+        data = await acled_query(
+            fetcher,
             params={
-                "key": access_token,
-                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
                 "limit": 500,
                 "event_date": f"{start_date}|{end_date}",
                 "event_date_where": "BETWEEN",
                 "country": country_name,
             },
+            cache_key=f"intel:cii2:acled:{country_code}",
+            cache_ttl=1800,
         )
         if data is None:
             return []
@@ -561,31 +531,27 @@ async def _instability_single(
 
 async def _instability_multi(fetcher: Fetcher, now: datetime) -> dict:
     """Compute CII v2 instability index for focus countries using ACLED."""
-    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-    if not access_token:
-        return {
-            "error": "ACLED_ACCESS_TOKEN not configured",
-            "source": "instability-index-v2",
-            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-
     start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
     end_date = now.strftime("%Y-%m-%d")
 
     # Fetch global events and bucket by country
-    data = await fetcher.get_json(
-        _ACLED_URL,
-        source="acled",
-        cache_key="intel:cii2:multi:global:30d",
-        cache_ttl=1800,
+    data = await acled_query(
+        fetcher,
         params={
-            "key": access_token,
-            "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
             "limit": 500,
             "event_date": f"{start_date}|{end_date}",
             "event_date_where": "BETWEEN",
         },
+        cache_key="intel:cii2:multi:global:30d",
+        cache_ttl=1800,
     )
+
+    if data is None:
+        return {
+            "error": "ACLED credentials not configured (ACLED_EMAIL + ACLED_PASSWORD)",
+            "source": "instability-index-v2",
+            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
 
     # Classify events by country and type
     country_data: dict[str, dict] = {}
@@ -846,25 +812,18 @@ async def fetch_focal_points(fetcher: Fetcher) -> dict:
         return events
 
     async def _fetch_protest_events() -> list[dict]:
-        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-        if not access_token:
-            return []
-
         start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         end_date = now.strftime("%Y-%m-%d")
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
-            cache_key="intel:focal:acled:protests:7d",
-            cache_ttl=1800,
+        data = await acled_query(
+            fetcher,
             params={
-                "key": access_token,
-                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
                 "limit": 200,
                 "event_date": f"{start_date}|{end_date}",
                 "event_date_where": "BETWEEN",
                 "event_type": "Protests",
             },
+            cache_key="intel:focal:acled:protests:7d",
+            cache_ttl=1800,
         )
         events = []
         if data is not None:
@@ -951,24 +910,18 @@ async def fetch_signal_summary(
         return aircraft
 
     async def _fetch_protests() -> list[dict]:
-        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-        if not access_token:
-            return []
         start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         end_date = now.strftime("%Y-%m-%d")
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
-            cache_key="intel:signals:acled:protests:7d",
-            cache_ttl=1800,
+        data = await acled_query(
+            fetcher,
             params={
-                "key": access_token,
-                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
                 "limit": 200,
                 "event_date": f"{start_date}|{end_date}",
                 "event_date_where": "BETWEEN",
                 "event_type": "Protests",
             },
+            cache_key="intel:signals:acled:protests:7d",
+            cache_ttl=1800,
         )
         if data is None:
             return []
@@ -1062,36 +1015,31 @@ async def fetch_temporal_anomalies(fetcher: Fetcher) -> dict:
             anomalies.append(result)
 
     # ACLED events by country (top focus countries)
-    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-    if access_token:
-        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-        end_date = now.strftime("%Y-%m-%d")
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
-            cache_key="intel:temporal:acled:global:7d",
-            cache_ttl=1800,
-            params={
-                "key": access_token,
-                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
-                "limit": 500,
-                "event_date": f"{start_date}|{end_date}",
-                "event_date_where": "BETWEEN",
-            },
-        )
-        if data is not None:
-            country_counts: dict[str, int] = {}
-            events_list = data.get("data", []) if isinstance(data, dict) else []
-            for event in events_list:
-                c = event.get("country")
-                if c:
-                    country_counts[c] = country_counts.get(c, 0) + 1
+    start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    end_date = now.strftime("%Y-%m-%d")
+    data = await acled_query(
+        fetcher,
+        params={
+            "limit": 500,
+            "event_date": f"{start_date}|{end_date}",
+            "event_date_where": "BETWEEN",
+        },
+        cache_key="intel:temporal:acled:global:7d",
+        cache_ttl=1800,
+    )
+    if data is not None:
+        country_counts: dict[str, int] = {}
+        events_list = data.get("data", []) if isinstance(data, dict) else []
+        for event in events_list:
+            c = event.get("country")
+            if c:
+                country_counts[c] = country_counts.get(c, 0) + 1
 
-            for c_name, c_count in country_counts.items():
-                result = _temporal.record_and_check("acled_events", c_name, c_count)
-                observations_recorded += 1
-                if result is not None:
-                    anomalies.append(result)
+        for c_name, c_count in country_counts.items():
+            result = _temporal.record_and_check("acled_events", c_name, c_count)
+            observations_recorded += 1
+            if result is not None:
+                anomalies.append(result)
 
     # Sort anomalies by z_score descending
     anomalies.sort(key=lambda a: a.get("z_score", 0), reverse=True)
@@ -1146,20 +1094,10 @@ async def fetch_unrest_events(
     """
     now = datetime.now(timezone.utc)
 
-    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-    if not access_token:
-        return {
-            "error": "ACLED_ACCESS_TOKEN not configured",
-            "source": "acled-unrest",
-            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-
     start_date = (now - timedelta(days=days)).strftime("%Y-%m-%d")
     end_date = now.strftime("%Y-%m-%d")
 
     params: dict = {
-        "key": access_token,
-        "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
         "limit": limit,
         "event_date": f"{start_date}|{end_date}",
         "event_date_where": "BETWEEN",
@@ -1170,19 +1108,16 @@ async def fetch_unrest_events(
         params["country"] = country
 
     cache_label = country or "global"
-    data = await fetcher.get_json(
-        _ACLED_URL,
-        source="acled",
+    data = await acled_query(
+        fetcher,
+        params=params,
         cache_key=f"intel:unrest:{cache_label}:{days}",
         cache_ttl=900,
-        params=params,
     )
 
     if data is None:
         return {
-            "events": [],
-            "count": 0,
-            "deduplicated": 0,
+            "error": "ACLED credentials not configured (ACLED_EMAIL + ACLED_PASSWORD)",
             "source": "acled-unrest",
             "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
@@ -1288,23 +1223,17 @@ async def fetch_hotspot_escalation(fetcher: Fetcher) -> dict:
 
     # Fetch global data once, then distribute to hotspots
     async def _fetch_global_acled() -> list[dict]:
-        access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-        if not access_token:
-            return []
         start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         end_date = now.strftime("%Y-%m-%d")
-        data = await fetcher.get_json(
-            _ACLED_URL,
-            source="acled",
-            cache_key="intel:escalation:acled:global:7d",
-            cache_ttl=1800,
+        data = await acled_query(
+            fetcher,
             params={
-                "key": access_token,
-                "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
                 "limit": 500,
                 "event_date": f"{start_date}|{end_date}",
                 "event_date_where": "BETWEEN",
             },
+            cache_key="intel:escalation:acled:global:7d",
+            cache_ttl=1800,
         )
         if data is None:
             return []

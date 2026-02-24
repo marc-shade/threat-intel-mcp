@@ -7,7 +7,10 @@ and humanitarian dataset metadata (HDX) for the world-intel-mcp server.
 import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone, timedelta
+
+import httpx
 
 from ..fetcher import Fetcher
 
@@ -15,10 +18,93 @@ logger = logging.getLogger("world-intel-mcp.sources.conflict")
 
 
 # ---------------------------------------------------------------------------
-# ACLED: Armed Conflict Location & Event Data
+# ACLED: Armed Conflict Location & Event Data (OAuth2)
 # ---------------------------------------------------------------------------
 
-_ACLED_URL = "https://api.acleddata.com/acled/read"
+_ACLED_API_URL = "https://acleddata.com/api/acled/read"
+_ACLED_TOKEN_URL = "https://acleddata.com/oauth/token"
+
+# Module-level token cache (refreshed automatically)
+_acled_token: str | None = None
+_acled_token_expires: float = 0.0
+_acled_refresh_token: str | None = None
+_acled_token_lock = asyncio.Lock()
+
+
+async def _acled_get_token() -> str | None:
+    """Obtain or refresh an ACLED OAuth2 Bearer token.
+
+    Uses password grant on first call, then refresh_token grant
+    before expiry.  Tokens are cached module-wide.
+    """
+    global _acled_token, _acled_token_expires, _acled_refresh_token
+
+    async with _acled_token_lock:
+        # Still valid (with 5-min buffer)
+        if _acled_token and time.time() < _acled_token_expires - 300:
+            return _acled_token
+
+        email = os.environ.get("ACLED_EMAIL")
+        password = os.environ.get("ACLED_PASSWORD")
+
+        # Try refresh_token grant first
+        if _acled_refresh_token:
+            body = {
+                "grant_type": "refresh_token",
+                "refresh_token": _acled_refresh_token,
+                "client_id": "acled",
+            }
+        elif email and password:
+            body = {
+                "grant_type": "password",
+                "username": email,
+                "password": password,
+                "client_id": "acled",
+            }
+        else:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    _ACLED_TOKEN_URL,
+                    data=body,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            _acled_token = data["access_token"]
+            _acled_token_expires = time.time() + data.get("expires_in", 86400)
+            _acled_refresh_token = data.get("refresh_token", _acled_refresh_token)
+            logger.info("ACLED OAuth token acquired (expires in %ds)", data.get("expires_in", 0))
+            return _acled_token
+        except Exception as exc:
+            logger.warning("ACLED OAuth token request failed: %s", exc)
+            # If refresh failed, try password grant as fallback
+            if _acled_refresh_token and email and password:
+                _acled_refresh_token = None
+                return await _acled_get_token()
+            return None
+
+
+async def acled_query(fetcher: Fetcher, params: dict, cache_key: str, cache_ttl: int = 900) -> dict | None:
+    """Shared ACLED API query with OAuth2 auth.
+
+    Returns parsed JSON or None on failure.  Used by both conflict and
+    intelligence modules to avoid duplicating OAuth logic.
+    """
+    token = await _acled_get_token()
+    if not token:
+        return None
+    return await fetcher.get_json(
+        _ACLED_API_URL,
+        source="acled",
+        cache_key=cache_key,
+        cache_ttl=cache_ttl,
+        params=params,
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
 
 async def fetch_acled_events(
@@ -27,10 +113,10 @@ async def fetch_acled_events(
     days: int = 7,
     limit: int = 100,
 ) -> dict:
-    """Fetch recent armed conflict events from the ACLED API v3.
+    """Fetch recent armed conflict events from the ACLED API.
 
-    Requires ``ACLED_ACCESS_TOKEN`` in the environment.  Free academic
-    access can be obtained at https://acleddata.com.
+    Requires ``ACLED_EMAIL`` and ``ACLED_PASSWORD`` in the environment.
+    Free access can be obtained at https://acleddata.com.
 
     Args:
         fetcher: Shared HTTP fetcher with caching and circuit breaking.
@@ -43,19 +129,10 @@ async def fetch_acled_events(
     """
     now = datetime.now(timezone.utc)
 
-    access_token = os.environ.get("ACLED_ACCESS_TOKEN")
-    if not access_token:
-        return {
-            "error": "ACLED_ACCESS_TOKEN not configured",
-            "note": "Free academic access at acleddata.com",
-        }
-
     start_date = (now - timedelta(days=days)).strftime("%Y-%m-%d")
     end_date = now.strftime("%Y-%m-%d")
 
     params: dict = {
-        "key": access_token,
-        "email": os.environ.get("ACLED_EMAIL", "phoenix@2acrestudios.com"),
         "limit": limit,
         "event_date": f"{start_date}|{end_date}",
         "event_date_where": "BETWEEN",
@@ -64,13 +141,16 @@ async def fetch_acled_events(
         params["country"] = country
 
     cache_country = country or "global"
-    data = await fetcher.get_json(
-        _ACLED_URL,
-        source="acled",
+    data = await acled_query(
+        fetcher, params,
         cache_key=f"conflict:acled:{cache_country}:{days}",
         cache_ttl=900,
-        params=params,
     )
+    if data is None and not await _acled_get_token():
+        return {
+            "error": "ACLED credentials not configured (ACLED_EMAIL + ACLED_PASSWORD)",
+            "note": "Free access at acleddata.com",
+        }
 
     if data is None:
         logger.warning("ACLED API returned no data")
