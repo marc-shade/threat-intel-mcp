@@ -16,6 +16,7 @@ Phase 6: Military & infrastructure intelligence (+6 = 45 tools).
 Phase 7: Health, sanctions, elections, shipping, social, nuclear, alerts, trends (+10 = 55 tools).
 Phase 8: Service status monitoring, RSS expansion (80+ feeds, 14 categories) (+1 = 56 tools).
 Phase 9: Geospatial datasets — military bases, ports, pipelines, nuclear facilities (+4 = 60 tools).
+Phase 10: NLP intelligence — entity extraction, event classification, news clustering, keyword spikes (+4 = 64 tools).
 """
 
 import asyncio
@@ -635,6 +636,51 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- NLP Intelligence (4 tools) ---
+    Tool(
+        name="intel_extract_entities",
+        description="Extract named entities (countries, leaders, organizations, companies, CVEs, APT groups) from text or recent news headlines.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to analyze. If omitted, analyzes recent news headlines."},
+            },
+        },
+    ),
+    Tool(
+        name="intel_classify_event",
+        description="Classify text into threat categories (military, terrorism, cyber, political, economic, health, climate, nuclear, etc.) with severity scoring (1-10).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Event text or headline to classify."},
+            },
+            "required": ["text"],
+        },
+    ),
+    Tool(
+        name="intel_news_clusters",
+        description="Cluster recent news articles by topic similarity using Jaccard coefficient. Groups related stories and extracts top keywords per cluster.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "RSS feed category filter (geopolitics, security, military, etc.)"},
+                "limit": {"type": "integer", "description": "Max news items to cluster (default: 100)"},
+                "threshold": {"type": "number", "description": "Similarity threshold 0.0-1.0 (default: 0.25)"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_keyword_spikes",
+        description="Detect trending keyword spikes against historical baselines using Welford's algorithm. Extracts CVE identifiers and APT group mentions.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "min_count": {"type": "integer", "description": "Minimum keyword frequency to consider (default: 3)"},
+                "z_threshold": {"type": "number", "description": "Z-score threshold for spike detection (default: 2.0)"},
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
@@ -902,6 +948,29 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 status=arguments.get("status"),
             )
 
+        # NLP Intelligence
+        case "intel_extract_entities":
+            from .analysis.entities import fetch_entity_extraction
+            return await fetch_entity_extraction(fetcher, text=arguments.get("text"))
+        case "intel_classify_event":
+            from .analysis.classifier import fetch_classify_event
+            return await fetch_classify_event(fetcher, text=arguments["text"])
+        case "intel_news_clusters":
+            from .analysis.clustering import fetch_news_clusters
+            return await fetch_news_clusters(
+                fetcher,
+                category=arguments.get("category"),
+                limit=arguments.get("limit", 100),
+                threshold=arguments.get("threshold", 0.25),
+            )
+        case "intel_keyword_spikes":
+            from .analysis.spikes import fetch_keyword_spikes
+            return await fetch_keyword_spikes(
+                fetcher,
+                min_count=arguments.get("min_count", 3),
+                z_threshold=arguments.get("z_threshold", 2.0),
+            )
+
         # System
         case "intel_status":
             return {
@@ -932,6 +1001,7 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "nuclear": ["usgs-nuclear-monitor"],
                     "service_status": ["aws", "azure", "gcp", "cloudflare", "github"],
                     "geospatial": ["static-datasets (bases, ports, pipelines, nuclear)"],
+                    "nlp": ["regex-ner", "keyword-classifier", "jaccard-clustering", "keyword-spike-detector"],
                 },
             }
 

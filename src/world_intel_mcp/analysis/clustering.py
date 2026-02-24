@@ -96,3 +96,77 @@ def cluster_articles(
     # Sort by member count descending
     clusters.sort(key=lambda c: c["member_count"], reverse=True)
     return clusters
+
+
+# ---------------------------------------------------------------------------
+# MCP-facing async wrapper
+# ---------------------------------------------------------------------------
+
+async def fetch_news_clusters(
+    fetcher,
+    category: str | None = None,
+    limit: int = 100,
+    threshold: float = 0.25,
+) -> dict:
+    """Fetch recent news and cluster by topic similarity.
+
+    Args:
+        fetcher: HTTP fetcher instance.
+        category: Optional RSS feed category filter.
+        limit: Max news items to fetch.
+        threshold: Jaccard similarity threshold (0.0 - 1.0).
+
+    Returns:
+        Dict with clusters[], cluster_count, total_items, singleton_count, source.
+    """
+    from datetime import datetime, timezone
+    from ..sources import news
+
+    feed_data = await news.fetch_news_feed(fetcher, category=category, limit=limit)
+    items = feed_data.get("items", [])
+
+    raw_clusters = cluster_articles(items, similarity_threshold=threshold)
+
+    out_clusters = []
+    for c in raw_clusters:
+        if c["member_count"] <= 1:
+            continue
+        rep = c["representative"]
+        # Collect keywords from all member titles
+        all_tokens: set[str] = set()
+        member_items = []
+        for idx in c["member_indices"]:
+            art = items[idx]
+            all_tokens |= _tokenize(art.get("title", ""))
+            member_items.append({
+                "title": art.get("title", ""),
+                "source": art.get("source_name", art.get("source", "")),
+                "link": art.get("link", ""),
+            })
+
+        # Top keywords by frequency
+        word_freq: dict[str, int] = {}
+        for idx in c["member_indices"]:
+            for w in _tokenize(items[idx].get("title", "")):
+                word_freq[w] = word_freq.get(w, 0) + 1
+        top_kw = sorted(word_freq, key=word_freq.get, reverse=True)[:8]  # type: ignore[arg-type]
+
+        out_clusters.append({
+            "headline": rep.get("title", ""),
+            "size": c["member_count"],
+            "keywords": top_kw,
+            "sources": list({m["source"] for m in member_items if m["source"]}),
+            "items": member_items[:5],
+        })
+
+    singletons = sum(1 for c in raw_clusters if c["member_count"] == 1)
+
+    return {
+        "clusters": out_clusters,
+        "cluster_count": len(out_clusters),
+        "total_items": len(items),
+        "singleton_count": singletons,
+        "threshold": threshold,
+        "source": "jaccard-clustering",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
