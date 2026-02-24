@@ -6,7 +6,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-Real-time global intelligence across **25 domains** with **60 MCP tools**, a live ops-center dashboard, CLI reports, and per-source circuit breakers. All data comes from free, public APIs — no paid subscriptions required.
+Real-time global intelligence across **26 domains** with **64 MCP tools**, a live ops-center dashboard, CLI reports, and per-source circuit breakers. All data comes from free, public APIs — no paid subscriptions required.
 
 > **Successor to threat-intel-mcp.** This project evolved from a focused threat intelligence server into a comprehensive world intelligence platform covering markets, geopolitics, climate, military, space weather, AI research, and more.
 
@@ -42,8 +42,9 @@ Real-time global intelligence across **25 domains** with **60 MCP tools**, a liv
 | **Nuclear** | 1 | USGS seismics near 5 nuclear test sites |
 | **Reports** | 3 | Daily brief, country dossier, threat landscape |
 | **Cross-Domain Analysis** | 2 | Alert digest, weekly trends |
+| **NLP Intelligence** | 4 | Entity extraction, event classification, news clustering, keyword spikes |
 
-**Total: 60 tools** across 25 intelligence domains.
+**Total: 64 tools** across 26 intelligence domains.
 
 ---
 
@@ -139,7 +140,7 @@ intel threat-landscape
 
 ```
 src/world_intel_mcp/
-  server.py              # MCP server (stdio) — 60 tool definitions
+  server.py              # MCP server (stdio) — 64 tool definitions
   fetcher.py             # Async HTTP client with retries, stale-data fallback
   cache.py               # SQLite TTL cache with stale-data recovery
   circuit_breaker.py     # Per-source circuit breakers (3 failures -> 5min cooldown)
@@ -172,7 +173,7 @@ src/world_intel_mcp/
     geospatial.py        # Query wrappers for static geospatial datasets
     service_status.py    # Cloudflare, AWS, Azure, GCP service health
 
-  analysis/              # Cross-domain analysis engines
+  analysis/              # Cross-domain analysis + NLP engines
     signals.py           # Signal convergence detection
     instability.py       # Country instability index (CII v2)
     focal_points.py      # Multi-signal focal point detection
@@ -181,10 +182,15 @@ src/world_intel_mcp/
     escalation.py        # Dynamic hotspot escalation scoring
     surge.py             # Military surge anomaly detection
     cascade.py           # Infrastructure cascade simulation
+    entities.py          # Named entity extraction (countries, leaders, orgs, CVEs, APTs)
+    classifier.py        # Keyword-based event threat classification (14 categories)
+    clustering.py        # Jaccard similarity news topic clustering
+    spikes.py            # Keyword spike detection with Welford's algorithm
 
   config/                # Static configuration data
     countries.py         # 22 intel hotspots, election calendar, nuclear test sites
     geospatial.py        # 70 military bases, 40 ports, 24 pipelines, 24 nuclear facilities
+    entities.py          # 28 leaders, 41 orgs, 25 companies, 36 APT groups
 
   reports/               # Report generation
     generator.py         # Report orchestrator
@@ -341,6 +347,14 @@ External APIs -> Fetcher (httpx + retries) -> Circuit Breaker -> Cache (TTL) -> 
 | `intel_risk_scores` | ACLED-based conflict risk scoring vs baselines |
 | `intel_hotspot_escalation` | Dynamic escalation scores for 22 intel hotspots |
 | `intel_military_surge` | Foreign aircraft concentration anomaly detection |
+
+### NLP Intelligence (4 tools)
+| Tool | Description |
+|------|-------------|
+| `intel_extract_entities` | Named entity extraction: countries, leaders, orgs, companies, CVEs, APT groups |
+| `intel_classify_event` | Event classification into 14 threat categories with severity scoring (1-10) |
+| `intel_news_clusters` | Topic clustering of news articles by Jaccard similarity with keyword extraction |
+| `intel_keyword_spikes` | Keyword spike detection against baselines with CVE/APT mention extraction |
 
 ### Cross-Domain Alerts (2 tools)
 | Tool | Description |
