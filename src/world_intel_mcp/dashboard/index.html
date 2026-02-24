@@ -466,6 +466,28 @@ a { color: var(--accent); text-decoration: none; }
     .hud-stats { display: none; }
     #alertBanner { left: 10px; right: 10px; }
 }
+/* ═══════════════ SEARCH ═══════════════ */
+.search-box { flex-shrink: 0; }
+.search-input {
+    width: 160px; padding: 4px 10px;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--bright);
+    font-family: var(--mono); font-size: 0.68rem;
+    outline: none; transition: border-color 0.3s, width 0.3s;
+}
+.search-input::placeholder { color: var(--dim); }
+.search-input:focus { border-color: rgba(0,229,255,0.3); width: 220px; }
+@media (max-width: 900px) {
+    .search-input { width: 100px; }
+    .search-input:focus { width: 140px; }
+}
+/* ═══════════════ COLLAPSIBLE SECTIONS ═══════════════ */
+.sh { cursor: pointer; user-select: none; }
+.sh::after { content: '\25BE'; float: right; font-size: 0.55rem; opacity: 0.3; transition: transform 0.2s; }
+.sh.collapsed::after { transform: rotate(-90deg); }
+/* ═══════════════ HUD PILL CLICKABLE ═══════════════ */
+.stat-pill { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.stat-pill:hover { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.15); }
 /* ═══════════════ CLUSTER STYLES ═══════════════ */
 .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
     background: rgba(14,20,33,0.7); border: 1px solid rgba(255,255,255,0.15); border-radius: 50%;
@@ -499,6 +521,9 @@ a { color: var(--accent); text-decoration: none; }
     <div class="hud-logo">
         <span class="logo-mark">&#x1F525;</span>
         <span class="logo-text">PHOENIX<span class="logo-dim"> INTEL</span></span>
+    </div>
+    <div class="search-box">
+        <input class="search-input" id="searchInput" type="text" placeholder="/ Search..." spellcheck="false" autocomplete="off" />
     </div>
     <div class="hud-stats" id="hudStats"></div>
     <div class="hud-status">
@@ -636,6 +661,8 @@ var latestData = null;
 var map = null;
 var mapLayers = {};
 var layerState = { quakes: true, military: true, conflict: true, fires: true, convergence: true, nuclear: true, infra: true, exposure: true, airtraffic: true, traffic: true, navwarnings: true, webcams: true };
+// Restore saved layer toggles from localStorage
+try { var _saved = JSON.parse(localStorage.getItem('phoenix-layers')); if (_saved) { for (var _k in _saved) { if (layerState.hasOwnProperty(_k)) layerState[_k] = _saved[_k]; } } } catch(e) {}
 var drawerOpen = false;
 
 // ════════════ MAP INIT ════════════
@@ -679,6 +706,7 @@ $$('.layer-row').forEach(function(row) {
         layerState[layer] = toggle.classList.contains('on');
         if (layerState[layer]) { mapLayers[layer].addTo(map); }
         else { map.removeLayer(mapLayers[layer]); }
+        try { localStorage.setItem('phoenix-layers', JSON.stringify(layerState)); } catch(e2) {}
     });
 });
 
@@ -891,9 +919,19 @@ function showDetail(type, d) {
     $('#detailHeader').innerHTML = safe(hdr);
     $('#detailBody').innerHTML = safe(body);
     $('#detail').classList.add('open');
+    // Auto-refresh webcam preview every 15s
+    _clearWebcamRefresh();
+    if (type === 'webcam' && d.preview_url) {
+        _webcamRefreshInterval = setInterval(function() {
+            var img = document.querySelector('#detailBody img');
+            if (img) img.src = d.preview_url + (d.preview_url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+        }, 15000);
+    }
 }
 
-function closeDetail() { $('#detail').classList.remove('open'); }
+var _webcamRefreshInterval = null;
+function _clearWebcamRefresh() { if (_webcamRefreshInterval) { clearInterval(_webcamRefreshInterval); _webcamRefreshInterval = null; } }
+function closeDetail() { _clearWebcamRefresh(); $('#detail').classList.remove('open'); }
 $('#detailClose').addEventListener('click', closeDetail);
 
 // ════════════ DRAWER DETAIL TYPES ════════════
@@ -1116,6 +1154,13 @@ function showDrawerDetail(id) {
     $('#detailHeader').innerHTML = safe(hdr);
     $('#detailBody').innerHTML = safe(body);
     $('#detail').classList.add('open');
+    _clearWebcamRefresh();
+    if (type === 'webcam' && d.preview_url) {
+        _webcamRefreshInterval = setInterval(function() {
+            var img = document.querySelector('#detailBody img');
+            if (img) img.src = d.preview_url + (d.preview_url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+        }, 15000);
+    }
 }
 
 // ════════════ GLOBAL LINK INTERCEPTOR ════════════
@@ -1135,15 +1180,21 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeDetail();
-        var dr = document.getElementById('drawer');
-        if (dr) dr.classList.remove('open');
+        if (!$('#drawer').classList.contains('closed')) {
+            drawerOpen = false;
+            $('#drawer').classList.add('closed');
+            $('#drawerToggle').innerHTML = '&#x25C0;';
+        }
+        $('#searchInput').blur();
     }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'd' || e.key === 'D') {
-        var dr = document.getElementById('drawer');
-        if (dr) dr.classList.toggle('open');
+        drawerOpen = !drawerOpen;
+        $('#drawer').classList.toggle('closed', !drawerOpen);
+        $('#drawerToggle').innerHTML = drawerOpen ? '&#x25B6;' : '&#x25C0;';
     }
     if (e.key === 'r' || e.key === 'R') { map.setView([20, 0], 2.5); }
+    if (e.key === '/') { e.preventDefault(); $('#searchInput').focus(); }
 });
 
 // ════════════ MAP MARKER MANAGEMENT ════════════
@@ -2247,7 +2298,8 @@ function updateDrawer(data) {
         h += '<div class="sh">CCTV / WEBCAMS</div>';
         h += '<div class="dim" style="font-size:0.65rem;padding:2px 0">' + wc.count + ' cameras (' + esc(wc.category || 'traffic') + ')</div>';
         (wc.cameras || []).slice(0, 12).forEach(function(cam) {
-            h += '<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+            var did = _storeItem('webcam', cam);
+            h += '<div class="drawer-item" data-click="' + did + '" style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
             h += '<div class="bright" style="font-size:0.7rem">' + esc(cam.title || 'Camera') + '</div>';
             h += '<div class="dim" style="font-size:0.6rem">' + esc(cam.city || '') + (cam.country ? ', ' + esc(cam.country) : '') + '</div>';
             h += '</div>';
@@ -2265,15 +2317,19 @@ function updateDrawer(data) {
 
     $('#drawerBody').innerHTML = safe(h);
 
-    // Attach click delegation for data-click rows
-    $('#drawerBody').addEventListener('click', function(e) {
-        var row = e.target.closest('[data-click]');
-        if (row) {
-            e.preventDefault();
-            e.stopPropagation();
-            showDrawerDetail(row.getAttribute('data-click'));
+    // Restore collapsed drawer sections from localStorage
+    try {
+        var _collapsed = JSON.parse(localStorage.getItem('phoenix-drawer-collapsed')) || [];
+        if (_collapsed.length) {
+            $$('#drawerBody .sh').forEach(function(sh) {
+                if (_collapsed.indexOf(sh.textContent.trim()) >= 0) {
+                    sh.classList.add('collapsed');
+                    var next = sh.nextElementSibling;
+                    while (next && !next.classList.contains('sh')) { next.style.display = 'none'; next = next.nextElementSibling; }
+                }
+            });
         }
-    });
+    } catch(e) {}
 }
 
 // ════════════ NEWS TICKER ════════════
@@ -2371,15 +2427,134 @@ function connectSSE() {
 // ════════════ BOOT ════════════
 initMap();
 
+// Restore saved layer visibility
+(function() {
+    for (var lk in layerState) {
+        if (!layerState[lk] && mapLayers[lk]) {
+            map.removeLayer(mapLayers[lk]);
+            var row = document.querySelector('.layer-row[data-layer="' + lk + '"]');
+            if (row) { var t = row.querySelector('.toggle'); if (t) t.classList.remove('on'); }
+        }
+    }
+})();
+
+// Drawer click delegation (attached once — not per SSE update)
+$('#drawerBody').addEventListener('click', function(e) {
+    var row = e.target.closest('[data-click]');
+    if (row) { e.preventDefault(); e.stopPropagation(); showDrawerDetail(row.getAttribute('data-click')); return; }
+    var sh = e.target.closest('.sh');
+    if (sh) {
+        sh.classList.toggle('collapsed');
+        var hide = sh.classList.contains('collapsed');
+        var next = sh.nextElementSibling;
+        while (next && !next.classList.contains('sh')) { next.style.display = hide ? 'none' : ''; next = next.nextElementSibling; }
+        try {
+            var names = []; $$('#drawerBody .sh.collapsed').forEach(function(s) { names.push(s.textContent.trim()); });
+            localStorage.setItem('phoenix-drawer-collapsed', JSON.stringify(names));
+        } catch(e2) {}
+    }
+});
+
+// HUD pill click-to-zoom
+var HUD_LAYER_MAP = { 'Quakes': 'quakes', 'Aircraft': 'military', 'Conflict': 'conflict', 'Fires': 'fires', 'Exposed': 'exposure', 'Airborne': 'airtraffic', 'Traffic': 'traffic', 'Cams': 'webcams', 'Nuke Flag': 'nuclear' };
+$('#hudStats').addEventListener('click', function(e) {
+    var pill = e.target.closest('.stat-pill');
+    if (!pill) return;
+    var label = pill.querySelector('.l');
+    if (!label) return;
+    var layerKey = HUD_LAYER_MAP[label.textContent.trim()];
+    if (!layerKey || !mapLayers[layerKey]) return;
+    // Ensure layer is visible
+    if (!layerState[layerKey]) {
+        layerState[layerKey] = true;
+        mapLayers[layerKey].addTo(map);
+        var row = document.querySelector('.layer-row[data-layer="' + layerKey + '"]');
+        if (row) { var t = row.querySelector('.toggle'); if (t) t.classList.add('on'); }
+        try { localStorage.setItem('phoenix-layers', JSON.stringify(layerState)); } catch(e2) {}
+    }
+    try {
+        var bounds = mapLayers[layerKey].getBounds();
+        if (bounds && bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 6 });
+    } catch(e2) {}
+});
+
+// Search
+var _searchTimeout = null;
+$('#searchInput').addEventListener('input', function() {
+    clearTimeout(_searchTimeout);
+    var q = this.value.trim().toLowerCase();
+    if (q.length < 2) return;
+    _searchTimeout = setTimeout(function() { performSearch(q); }, 500);
+});
+$('#searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(_searchTimeout); var q = this.value.trim().toLowerCase(); if (q.length >= 2) performSearch(q); }
+    e.stopPropagation();
+});
+
+function _matchText(item, q) {
+    var fields = [item.country, item.place, item.city, item.name, item.callsign, item.origin_country,
+                  item.title, item.location, item.admin1, item.event_type, item.indicator, item.subreddit,
+                  item.site, item.site_country, item.operator, item.side_a, item.side_b, item.dyad_name,
+                  item.actor1, item.actor2, item.notes];
+    for (var i = 0; i < fields.length; i++) { if (fields[i] && String(fields[i]).toLowerCase().indexOf(q) >= 0) return true; }
+    // Search array fields (associated_countries, tags) with ISO3→name expansion
+    var _iso = {UKR:'ukraine',RUS:'russia',CHN:'china',TWN:'taiwan',IRN:'iran',ISR:'israel',PSE:'palestine',PRK:'north korea',KOR:'south korea',MMR:'myanmar',ETH:'ethiopia',SDN:'sudan',SSD:'south sudan',SOM:'somalia',YEM:'yemen',SYR:'syria',AFG:'afghanistan',LBY:'libya',MLI:'mali',MOZ:'mozambique',NGA:'nigeria',COD:'congo',COL:'colombia',VEN:'venezuela',IND:'india',PAK:'pakistan',PHL:'philippines',LBN:'lebanon',IRQ:'iraq',USA:'united states',GBR:'united kingdom',FRA:'france',DEU:'germany',JPN:'japan',SAU:'saudi arabia',TUR:'turkey',EGY:'egypt',BRA:'brazil',MEX:'mexico',AUS:'australia',CAN:'canada',ZAF:'south africa'};
+    var assoc = item.associated_countries;
+    if (Array.isArray(assoc)) {
+        for (var j = 0; j < assoc.length; j++) {
+            var code = assoc[j];
+            if (code && code.toLowerCase().indexOf(q) >= 0) return true;
+            if (_iso[code] && _iso[code].indexOf(q) >= 0) return true;
+        }
+    }
+    if (Array.isArray(item.tags) && item.tags.join(' ').toLowerCase().indexOf(q) >= 0) return true;
+    return false;
+}
+
+function performSearch(q) {
+    if (!latestData) return;
+    var coords = [];
+    function _scan(items, latK, lonK) {
+        (items || []).forEach(function(it) {
+            if (_matchText(it, q) && it[latK] != null && it[lonK] != null) coords.push([Number(it[latK]), Number(it[lonK])]);
+        });
+    }
+    _scan((latestData.earthquakes || {}).earthquakes, 'latitude', 'longitude');
+    _scan((latestData.military_flights || {}).aircraft, 'latitude', 'longitude');
+    var cSrc = (latestData.acled_events && !latestData.acled_events.error && (latestData.acled_events.count||0) > 0) ? latestData.acled_events
+        : (latestData.ucdp_events && !latestData.ucdp_events.error && (latestData.ucdp_events.count||0) > 0) ? latestData.ucdp_events
+        : latestData.conflict_zones;
+    _scan((cSrc || {}).events, 'latitude', 'longitude');
+    _scan((cSrc || {}).events, 'lat', 'lon');
+    var fbr = (latestData.wildfires || {}).fires_by_region || {};
+    for (var rk in fbr) { if (fbr.hasOwnProperty(rk)) { (fbr[rk].top_clusters || []).forEach(function(c) { if (rk.toLowerCase().indexOf(q) >= 0 && c.lat != null) coords.push([c.lat, c.lon]); }); } }
+    _scan((latestData.signal_convergence || {}).hotspots, 'lat', 'lon');
+    _scan((latestData.traffic_flow || {}).cities, 'lat', 'lon');
+    _scan((latestData.webcams || {}).cameras, 'lat', 'lon');
+    _scan((latestData.domestic_flights || {}).positions, 'lat', 'lon');
+    _scan((latestData.nav_warnings || {}).warnings, 'lat', 'lon');
+    _scan((latestData.military_bases || {}).bases, 'lat', 'lon');
+    _scan((latestData.strategic_ports || {}).ports, 'lat', 'lon');
+    _scan((latestData.nuclear_facilities || {}).facilities, 'lat', 'lon');
+    _scan((latestData.nuclear_monitor || {}).sites, 'lat', 'lon');
+    if (coords.length > 0) {
+        map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], maxZoom: coords.length === 1 ? 10 : 6 });
+        $('#searchInput').style.borderColor = 'rgba(0,229,255,0.4)';
+    } else {
+        $('#searchInput').style.borderColor = 'rgba(255,59,59,0.4)';
+    }
+    setTimeout(function() { $('#searchInput').style.borderColor = ''; }, 2000);
+}
+
+// Show loading indicator until SSE data arrives
+$('#hudStats').innerHTML = '<div class="stat-pill"><span class="l" style="animation:pulse-dot 2s ease-in-out infinite">LOADING LIVE FEEDS</span></div>';
+$('#drawerBody').innerHTML = '<div style="padding:30px;text-align:center"><div class="load-ring" style="width:28px;height:28px;margin:0 auto 10px"></div><div class="dim" style="font-size:0.6rem;letter-spacing:1.5px">LOADING INTELLIGENCE FEEDS</div></div>';
+
 // Load static geospatial data immediately (bases, ports, nuclear facilities).
-// This populates the infrastructure layer without waiting for the full SSE
-// gather, which can take 30-60s when external APIs are slow.
 fetch('/api/static')
     .then(function(r) { return r.json(); })
     .then(function(data) {
         try { updateMapInfra(data); } catch(e) { console.warn('static infra failed:', e); }
-        // Dismiss loading overlay once static infra is rendered — the map is
-        // usable with 158 items while live feeds continue loading via SSE.
         document.getElementById('loading').classList.add('gone');
     })
     .catch(function(e) { console.warn('static fetch failed:', e); });
