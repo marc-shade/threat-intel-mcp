@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-World Intelligence MCP Server — 68 tools across 27 domains providing real-time global intelligence from free public APIs. Serves three interfaces: MCP stdio (for Claude Code/Cursor), a live Starlette dashboard with SSE, and a Click CLI with Rich output.
+World Intelligence MCP Server — 81 tools across 30 domains providing real-time global intelligence from free public APIs. Serves three interfaces: MCP stdio (for Claude Code/Cursor), a live Starlette dashboard with SSE, and a Click CLI with Rich output. Python 3.11+, built with hatchling.
 
 ## Commands
 
@@ -28,6 +28,8 @@ intel status                     # cache + circuit breaker health
 
 # Dashboard (requires [dashboard] extra)
 intel-dashboard --port 8501
+# Or with .env auto-loaded:
+./run-dashboard.sh
 ```
 
 ## Architecture
@@ -46,11 +48,15 @@ dashboard/app.py (SSE)  ─┘                                                  
 - `CircuitBreaker`: Per-source tracking. 3 consecutive failures trips the breaker for 5 minutes. Each RSS feed gets its own breaker (`rss:bbc_world`).
 - `Cache`: SQLite WAL-mode TTL cache. `get()` returns live data, `get_stale()` returns expired data for fallback.
 
-**Source modules** (`sources/*.py`): Each module exports `async def fetch_*(fetcher: Fetcher, **kwargs) -> dict`. Pure data fetching — no MCP awareness. 25 modules covering markets, seismology, military, cyber, health, etc.
+**Source modules** (`sources/*.py`): Each module exports `async def fetch_*(fetcher: Fetcher, **kwargs) -> dict`. Pure data fetching — no MCP awareness. 30 modules covering markets, seismology, military, cyber, health, tech, environmental, etc.
 
 **Analysis modules** (`analysis/*.py`): Cross-domain intelligence that consumes outputs from multiple sources. Includes signal aggregation, instability indexing, NLP (entity extraction, classification, clustering, spike detection via Welford's algorithm), and strategic synthesis.
 
-**Static config** (`config/*.py`): Curated datasets — 22 intel hotspots, 70+ military bases, 40 ports, 24 pipelines, 24 nuclear facilities, 105 major cities, 28 world leaders, 36 APT groups.
+**Reports** (`reports/*.py`): Jinja2-templated HTML/Markdown reports (daily brief, country dossier, threat landscape). `generator.py` orchestrates parallel source fetches. Output dir defaults to `$STORAGE_BASE/reports/intel` or `INTEL_REPORT_DIR` env var.
+
+**Static config** (`config/*.py`): Curated datasets — 22 intel hotspots, 70+ military bases, 40 ports, 24 pipelines, 24 nuclear facilities, 34 undersea cables, 48 AI datacenters, 27 spaceports, 27 mineral deposits, 82 stock exchanges, 105 major cities, 28 world leaders, 36 APT groups.
+
+**Dashboard** (`dashboard/`): Self-contained Starlette app with a single `index.html` template (no frontend build step). SSE endpoint streams all domains in parallel via `asyncio.gather()`, refreshes every 30 seconds. Loads `.env` from project root on startup.
 
 ## Adding a New Tool
 
@@ -65,8 +71,7 @@ dashboard/app.py (SSE)  ─┘                                                  
 - **Source name string**: The `source` parameter in `fetcher.get_json()` identifies the API for circuit breaking and rate limiting. Must match entries in `_SOURCE_RATE_LIMITS` if rate-limited (e.g., `"yahoo-finance"`, `"coingecko"`, `"adsblol"`).
 - **Tool dispatch**: `server.py` uses Python `match/case` to route tool names to source functions. Tool names follow `intel_*` convention.
 - **All source functions take `fetcher` as first arg** — never construct your own httpx client.
-- **Dashboard SSE**: `dashboard/app.py` fetches all domains in parallel via `asyncio.gather()`, streams updates every 30 seconds.
-- **Tests strip proxy env vars** automatically via `conftest.py` fixture (prevents SOCKS proxy interference).
+- **Tests strip proxy env vars** automatically via `conftest.py` fixture (prevents SOCKS proxy interference). The conftest also resets global fetcher rate-limit locks between tests to avoid cross-event-loop binding.
 
 ## Environment Variables
 

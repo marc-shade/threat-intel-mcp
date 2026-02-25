@@ -394,6 +394,58 @@ async def _fetch_btc_dominance(fetcher: Fetcher) -> dict | None:
         return None
 
 
+async def fetch_country_stocks(
+    fetcher: Fetcher,
+    country: str = "USA",
+) -> dict:
+    """Fetch the primary stock index for a given country.
+
+    Uses the COUNTRY_INDEX_TICKERS mapping from config/exchanges.py.
+
+    Args:
+        fetcher: Shared HTTP fetcher.
+        country: ISO-3 country code (e.g., "USA", "GBR", "JPN", "DEU").
+
+    Returns:
+        Dict with index quote, country, exchange info, source, timestamp.
+    """
+    from ..config.exchanges import COUNTRY_INDEX_TICKERS, STOCK_EXCHANGES
+
+    country_upper = country.upper()
+    ticker = COUNTRY_INDEX_TICKERS.get(country_upper)
+    if ticker is None:
+        return {
+            "error": f"No index ticker mapped for country '{country_upper}'",
+            "available_countries": sorted(COUNTRY_INDEX_TICKERS.keys()),
+            "source": "yahoo-finance",
+            "timestamp": _utc_now_iso(),
+        }
+
+    quote = await _fetch_yahoo_quote(fetcher, ticker, f"markets:country:{country_upper}", 300)
+
+    # Find exchange info
+    exchange_info = None
+    for ex in STOCK_EXCHANGES:
+        if ex.get("index") == ticker:
+            exchange_info = {
+                "name": ex["name"],
+                "acronym": ex["acronym"],
+                "city": ex["city"],
+                "currency": ex["currency"],
+                "tier": ex["tier"],
+            }
+            break
+
+    return {
+        "country": country_upper,
+        "ticker": ticker,
+        "quote": quote,
+        "exchange": exchange_info,
+        "source": "yahoo-finance",
+        "timestamp": _utc_now_iso(),
+    }
+
+
 async def fetch_macro_signals(fetcher: Fetcher) -> dict:
     """Aggregate 7 macro signals into a single dashboard payload.
 

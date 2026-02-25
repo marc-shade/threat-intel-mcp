@@ -3,7 +3,7 @@
 World Intelligence MCP Server
 ==============================
 
-Real-time global intelligence across 23 domains:
+Real-time global intelligence across 30 domains:
 financial markets, economic indicators, earthquakes, wildfires,
 conflict, military flights, infrastructure, and more.
 
@@ -18,6 +18,9 @@ Phase 8: Service status monitoring, RSS expansion (80+ feeds, 14 categories) (+1
 Phase 9: Geospatial datasets — military bases, ports, pipelines, nuclear facilities (+4 = 60 tools).
 Phase 10: NLP intelligence — entity extraction, event classification, news clustering, keyword spikes (+4 = 64 tools).
 Phase 11: Strategic synthesis — strategic posture, world brief, fleet report, population exposure (+4 = 68 tools).
+Phase 12: Extended geospatial (cables, datacenters, spaceports, minerals, exchanges), country stocks,
+          aircraft batch, Hacker News, GitHub trending, arXiv papers, USA spending,
+          NASA EONET, GDACS disaster alerts (+14 = 82 tools).
 """
 
 import asyncio
@@ -33,7 +36,7 @@ from mcp.types import Tool, TextContent
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial
+from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial, hacker_news, github_trending, arxiv_papers, usa_spending, environmental
 from .reports import generator as report_gen
 
 logging.basicConfig(
@@ -713,10 +716,173 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- Extended Geospatial (5 tools) ---
+    Tool(
+        name="intel_undersea_cables",
+        description="Query 30+ undersea fiber-optic cable routes with landing points, owners, capacity (Tbps), and length (km). Filterable by status, country, owner, min capacity.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "description": "Filter by status: active, planned, construction, decommissioned"},
+                "country": {"type": "string", "description": "Filter by country in landing points"},
+                "owner": {"type": "string", "description": "Filter by cable owner (Google, Meta, Microsoft, etc.)"},
+                "min_capacity_tbps": {"type": "number", "description": "Minimum cable capacity in Tbps"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_ai_datacenters",
+        description="Query 48+ AI datacenter clusters worldwide with power capacity (MW), operators, and locations. Covers hyperscalers and sovereign AI.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "operator": {"type": "string", "description": "Filter by operator (AWS, Google, Microsoft, Meta, etc.)"},
+                "min_power_mw": {"type": "integer", "description": "Minimum power capacity in MW"},
+                "region": {"type": "string", "description": "Filter by region (North America, Europe, Asia-Pacific, etc.)"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_spaceports",
+        description="Query 27+ launch facilities and spaceports worldwide. Filterable by country, status, type (orbital/suborbital), and operator.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "status": {"type": "string", "description": "Filter by status: active, limited, planned, decommissioned"},
+                "spaceport_type": {"type": "string", "description": "Filter by type: orbital, suborbital"},
+                "operator": {"type": "string", "description": "Filter by operator (SpaceX, NASA, CNSA, Roscosmos, etc.)"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_critical_minerals",
+        description="Query 28+ critical mineral deposits worldwide: lithium, cobalt, rare earths, nickel, copper, graphite, manganese, PGM, tungsten, uranium, tin, gallium, germanium.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "mineral": {"type": "string", "description": "Filter by mineral (lithium, cobalt, rare_earths, nickel, copper, graphite, manganese, platinum_group, tungsten, uranium, tin, gallium, germanium)"},
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "mineral_type": {"type": "string", "description": "Filter by type: battery, electronic, structural, energy, industrial, strategic"},
+                "operator": {"type": "string", "description": "Filter by operator"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_stock_exchanges",
+        description="Query 80+ stock exchanges across 4 tiers (mega >$3T, major, emerging, frontier) with market cap, index tickers, currencies, timezones.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "tier": {"type": "string", "description": "Filter by tier: mega, major, emerging, frontier"},
+                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "currency": {"type": "string", "description": "Filter by currency (USD, EUR, GBP, JPY, CNY, etc.)"},
+            },
+        },
+    ),
+    # --- Markets Extended (1 tool) ---
+    Tool(
+        name="intel_country_stocks",
+        description="Get real-time stock index quote for any country by ISO-3 code. Maps country to its primary exchange index ticker and fetches via Yahoo Finance.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "ISO-3 country code (USA, GBR, JPN, CHN, DEU, etc.)", "default": "USA"},
+            },
+        },
+    ),
+    # --- Military Extended (1 tool) ---
+    Tool(
+        name="intel_aircraft_batch",
+        description="Batch lookup of aircraft details by ICAO24 hex codes (max 20). Returns registration, type, operator from hexdb.io.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "icao24_list": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of ICAO24 hex addresses (max 20)",
+                },
+            },
+            "required": ["icao24_list"],
+        },
+    ),
+    # --- Tech & Science (3 tools) ---
+    Tool(
+        name="intel_hacker_news",
+        description="Get top stories from Hacker News (Firebase API). Returns title, score, URL, author, comment count. Optional: limit (default 30).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Number of stories (default 30, max 100)", "default": 30},
+            },
+        },
+    ),
+    Tool(
+        name="intel_trending_repos",
+        description="Get trending GitHub repositories (recently created, most starred). Optional: language filter, time window, limit.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "language": {"type": "string", "description": "Programming language filter (python, rust, typescript, etc.)"},
+                "since_days": {"type": "integer", "description": "Look back N days for new repos (default 7)", "default": 7},
+                "limit": {"type": "integer", "description": "Number of repos (default 25)", "default": 25},
+            },
+        },
+    ),
+    Tool(
+        name="intel_arxiv_papers",
+        description="Search recent arXiv papers in AI/ML (cs.AI, cs.LG, cs.CL). Optional custom query. Returns title, authors, abstract, categories, PDF link.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "arXiv search query (default: cs.AI OR cs.LG OR cs.CL)"},
+                "limit": {"type": "integer", "description": "Number of papers (default 25)", "default": 25},
+            },
+        },
+    ),
+    # --- Government (1 tool) ---
+    Tool(
+        name="intel_usa_spending",
+        description="Federal agency spending data from USAspending.gov. Shows top agencies by budget for current fiscal year. Optional: agency filter.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "agency": {"type": "string", "description": "Filter by agency name substring"},
+                "limit": {"type": "integer", "description": "Number of agencies (default 25)", "default": 25},
+            },
+        },
+    ),
+    # --- Environmental (2 tools) ---
+    Tool(
+        name="intel_environmental_events",
+        description="Natural events from NASA EONET: wildfires, severe storms, volcanoes, floods, icebergs, drought. Includes geolocation and source links.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "days": {"type": "integer", "description": "Look back N days (default 30)", "default": 30},
+                "category": {"type": "string", "description": "Filter by category: wildfires, severeStorms, volcanoes, floods, earthquakes, drought, seaLakeIce"},
+                "limit": {"type": "integer", "description": "Max events (default 50)", "default": 50},
+            },
+        },
+    ),
+    Tool(
+        name="intel_disaster_alerts",
+        description="Global disaster alerts from GDACS (UN): earthquakes, floods, cyclones, droughts, wildfires. Severity levels (green/orange/red) with affected populations.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "alert_level": {"type": "string", "description": "Filter by level: green, orange, red"},
+                "event_type": {"type": "string", "description": "Filter by type: EQ, FL, TC, DR, WF, VO"},
+                "limit": {"type": "integer", "description": "Max alerts (default 30)", "default": 30},
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
-        description="Get data source health, circuit breaker status, and cache statistics.",
+        description="Get data source health, circuit breaker status, cache freshness, and statistics.",
         inputSchema={"type": "object", "properties": {}},
     ),
 ]
@@ -998,6 +1164,97 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 event_types=arguments.get("event_types"),
             )
 
+        # Extended Geospatial
+        case "intel_undersea_cables":
+            return await geospatial.fetch_undersea_cables(
+                status=arguments.get("status"),
+                country=arguments.get("country"),
+                owner=arguments.get("owner"),
+                min_capacity_tbps=arguments.get("min_capacity_tbps"),
+            )
+        case "intel_ai_datacenters":
+            return await geospatial.fetch_ai_datacenters(
+                country=arguments.get("country"),
+                operator=arguments.get("operator"),
+                min_power_mw=arguments.get("min_power_mw"),
+                region=arguments.get("region"),
+            )
+        case "intel_spaceports":
+            return await geospatial.fetch_spaceports(
+                country=arguments.get("country"),
+                status=arguments.get("status"),
+                spaceport_type=arguments.get("spaceport_type"),
+                operator=arguments.get("operator"),
+            )
+        case "intel_critical_minerals":
+            return await geospatial.fetch_critical_minerals(
+                mineral=arguments.get("mineral"),
+                country=arguments.get("country"),
+                mineral_type=arguments.get("mineral_type"),
+                operator=arguments.get("operator"),
+            )
+        case "intel_stock_exchanges":
+            return await geospatial.fetch_stock_exchanges(
+                tier=arguments.get("tier"),
+                country=arguments.get("country"),
+                currency=arguments.get("currency"),
+            )
+
+        # Markets Extended
+        case "intel_country_stocks":
+            return await markets.fetch_country_stocks(
+                fetcher, country=arguments.get("country", "USA"),
+            )
+
+        # Military Extended
+        case "intel_aircraft_batch":
+            return await military.fetch_aircraft_details_batch(
+                fetcher, icao24_list=arguments["icao24_list"],
+            )
+
+        # Tech & Science
+        case "intel_hacker_news":
+            return await hacker_news.fetch_hacker_news(
+                fetcher, limit=arguments.get("limit", 30),
+            )
+        case "intel_trending_repos":
+            return await github_trending.fetch_trending_repos(
+                fetcher,
+                language=arguments.get("language"),
+                since_days=arguments.get("since_days", 7),
+                limit=arguments.get("limit", 25),
+            )
+        case "intel_arxiv_papers":
+            return await arxiv_papers.fetch_arxiv_papers(
+                fetcher,
+                query=arguments.get("query"),
+                limit=arguments.get("limit", 25),
+            )
+
+        # Government
+        case "intel_usa_spending":
+            return await usa_spending.fetch_usa_spending(
+                fetcher,
+                agency=arguments.get("agency"),
+                limit=arguments.get("limit", 25),
+            )
+
+        # Environmental
+        case "intel_environmental_events":
+            return await environmental.fetch_environmental_events(
+                fetcher,
+                days=arguments.get("days", 30),
+                category=arguments.get("category"),
+                limit=arguments.get("limit", 50),
+            )
+        case "intel_disaster_alerts":
+            return await environmental.fetch_disaster_alerts(
+                fetcher,
+                alert_level=arguments.get("alert_level"),
+                event_type=arguments.get("event_type"),
+                limit=arguments.get("limit", 30),
+            )
+
         # NLP Intelligence
         case "intel_extract_entities":
             from .analysis.entities import fetch_entity_extraction
@@ -1026,6 +1283,7 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             return {
                 "circuit_breakers": breaker.status(),
                 "cache": cache.stats(),
+                "cache_freshness": cache.freshness(),
                 "sources": {
                     "markets": ["yahoo-finance", "coingecko", "alternative-me", "mempool"],
                     "economic": ["eia", "fred", "world-bank"],
@@ -1050,9 +1308,12 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "social": ["reddit-public"],
                     "nuclear": ["usgs-nuclear-monitor"],
                     "service_status": ["aws", "azure", "gcp", "cloudflare", "github"],
-                    "geospatial": ["static-datasets (bases, ports, pipelines, nuclear)"],
+                    "geospatial": ["static-datasets (bases, ports, pipelines, nuclear, cables, datacenters, spaceports, minerals, exchanges)"],
                     "nlp": ["regex-ner", "keyword-classifier", "jaccard-clustering", "keyword-spike-detector"],
                     "synthesis": ["strategic-posture", "world-brief", "fleet-report", "population-exposure"],
+                    "tech": ["hackernews", "github", "arxiv"],
+                    "government": ["usaspending-gov"],
+                    "environmental": ["eonet", "gdacs"],
                 },
             }
 

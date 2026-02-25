@@ -118,6 +118,27 @@ class Cache:
             "db_path": str(self.db_path),
         }
 
+    def freshness(self) -> dict[str, Any]:
+        """Per-source freshness report — shows age of newest entry per source prefix."""
+        conn = self._get_conn()
+        now = time.time()
+        rows = conn.execute(
+            "SELECT key, created_at, expires_at FROM cache ORDER BY created_at DESC"
+        ).fetchall()
+        sources: dict[str, dict] = {}
+        for key, created_at, expires_at in rows:
+            # Extract source prefix (e.g., "markets:quotes:^GSPC" → "markets")
+            prefix = key.split(":")[0] if ":" in key else key
+            if prefix not in sources:
+                age_s = now - created_at
+                is_stale = now > expires_at
+                sources[prefix] = {
+                    "last_updated_s_ago": round(age_s, 1),
+                    "is_stale": is_stale,
+                    "newest_key": key,
+                }
+        return sources
+
     def close(self) -> None:
         if self._conn:
             self._conn.close()

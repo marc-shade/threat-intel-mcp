@@ -96,6 +96,9 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
     "latin_america": [
         ("MercoPress", "https://en.mercopress.com/rss"),
         ("Dialogo Americas", "https://dialogo-americas.com/feed/"),
+        ("Americas Quarterly", "https://www.americasquarterly.org/feed/"),
+        ("Buenos Aires Times", "https://www.batimes.com.ar/feed"),
+        ("Tico Times", "https://ticotimes.net/feed"),
     ],
     "energy": [
         ("Oil Price", "https://oilprice.com/rss/main"),
@@ -284,6 +287,7 @@ async def fetch_news_feed(
             source=f"rss:{safe_name}",
             cache_key=f"news:rss:{safe_name}",
             cache_ttl=300,
+            timeout=8.0,
         )
 
         if xml_text is None:
@@ -308,15 +312,25 @@ async def fetch_news_feed(
 
         return items
 
-    # Fetch all feeds within each category in parallel
-    for cat, feeds in categories_to_fetch.items():
-        tasks = [
-            _fetch_single_feed(feed_name, url, cat)
-            for feed_name, url in feeds
-        ]
-        results = await asyncio.gather(*tasks)
-        for items in results:
-            all_items.extend(items)
+    async def _safe_fetch(feed_name: str, url: str, cat: str) -> list[dict]:
+        """Wrap single feed fetch with a hard timeout."""
+        try:
+            return await asyncio.wait_for(
+                _fetch_single_feed(feed_name, url, cat), timeout=12.0,
+            )
+        except asyncio.TimeoutError:
+            logger.debug("RSS feed %s timed out", feed_name)
+            return []
+
+    # Fetch ALL feeds across ALL categories in one parallel batch
+    all_tasks = [
+        _safe_fetch(feed_name, url, cat)
+        for cat, feeds in categories_to_fetch.items()
+        for feed_name, url in feeds
+    ]
+    results = await asyncio.gather(*all_tasks)
+    for items in results:
+        all_items.extend(items)
 
     # Sort by published date descending (entries without dates go last)
     all_items.sort(

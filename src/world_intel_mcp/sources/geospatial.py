@@ -17,6 +17,11 @@ from ..config.geospatial import (
     query_pipelines,
     query_nuclear,
 )
+from ..config.cables import UNDERSEA_CABLES, query_cables
+from ..config.datacenters import AI_DATACENTERS, query_datacenters
+from ..config.spaceports import SPACEPORTS, query_spaceports
+from ..config.minerals import CRITICAL_MINERALS, query_minerals
+from ..config.exchanges import STOCK_EXCHANGES, query_exchanges
 
 
 def _utc_now_iso() -> str:
@@ -164,6 +169,129 @@ async def fetch_nuclear_facilities(
         "by_type": by_type,
         "by_status": by_status,
         "filters": {"facility_type": facility_type, "country": country, "status": status},
+        "source": "static-geospatial",
+        "timestamp": _utc_now_iso(),
+    }
+
+
+async def fetch_undersea_cables(
+    status: str | None = None,
+    country: str | None = None,
+    owner: str | None = None,
+    min_capacity_tbps: float | None = None,
+) -> dict:
+    """Query undersea cable routes with landing points."""
+    cables = query_cables(status=status, country=country, owner=owner, min_capacity_tbps=min_capacity_tbps)
+    total_length = sum(c["length_km"] for c in cables)
+    total_capacity = sum(c["capacity_tbps"] for c in cables)
+    by_status: dict[str, int] = {}
+    for c in cables:
+        by_status[c["status"]] = by_status.get(c["status"], 0) + 1
+    return {
+        "cables": cables,
+        "count": len(cables),
+        "total_in_database": len(UNDERSEA_CABLES),
+        "total_length_km": total_length,
+        "total_capacity_tbps": total_capacity,
+        "by_status": by_status,
+        "filters": {"status": status, "country": country, "owner": owner, "min_capacity_tbps": min_capacity_tbps},
+        "source": "static-geospatial",
+        "timestamp": _utc_now_iso(),
+    }
+
+
+async def fetch_ai_datacenters(
+    country: str | None = None,
+    operator: str | None = None,
+    min_power_mw: int | None = None,
+    region: str | None = None,
+) -> dict:
+    """Query AI datacenter clusters worldwide."""
+    dcs = query_datacenters(country=country, operator=operator, min_power_mw=min_power_mw, region=region)
+    total_power = sum(d["power_mw"] for d in dcs)
+    by_country: dict[str, int] = {}
+    for d in dcs:
+        by_country[d["country"]] = by_country.get(d["country"], 0) + 1
+    return {
+        "datacenters": dcs,
+        "count": len(dcs),
+        "total_in_database": len(AI_DATACENTERS),
+        "total_power_mw": total_power,
+        "by_country": by_country,
+        "filters": {"country": country, "operator": operator, "min_power_mw": min_power_mw, "region": region},
+        "source": "static-geospatial",
+        "timestamp": _utc_now_iso(),
+    }
+
+
+async def fetch_spaceports(
+    country: str | None = None,
+    status: str | None = None,
+    spaceport_type: str | None = None,
+    operator: str | None = None,
+) -> dict:
+    """Query launch facilities and spaceports worldwide."""
+    sps = query_spaceports(country=country, status=status, spaceport_type=spaceport_type, operator=operator)
+    by_country: dict[str, int] = {}
+    by_type: dict[str, int] = {}
+    for s in sps:
+        by_country[s["country"]] = by_country.get(s["country"], 0) + 1
+        by_type[s["type"]] = by_type.get(s["type"], 0) + 1
+    return {
+        "spaceports": sps,
+        "count": len(sps),
+        "total_in_database": len(SPACEPORTS),
+        "by_country": by_country,
+        "by_type": by_type,
+        "filters": {"country": country, "status": status, "spaceport_type": spaceport_type, "operator": operator},
+        "source": "static-geospatial",
+        "timestamp": _utc_now_iso(),
+    }
+
+
+async def fetch_critical_minerals(
+    mineral: str | None = None,
+    country: str | None = None,
+    mineral_type: str | None = None,
+    operator: str | None = None,
+) -> dict:
+    """Query critical mineral deposits worldwide."""
+    deposits = query_minerals(mineral=mineral, country=country, mineral_type=mineral_type, operator=operator)
+    by_mineral: dict[str, int] = {}
+    by_country: dict[str, int] = {}
+    for d in deposits:
+        by_mineral[d["mineral"]] = by_mineral.get(d["mineral"], 0) + 1
+        by_country[d["country"]] = by_country.get(d["country"], 0) + 1
+    return {
+        "deposits": deposits,
+        "count": len(deposits),
+        "total_in_database": len(CRITICAL_MINERALS),
+        "by_mineral": by_mineral,
+        "by_country": by_country,
+        "filters": {"mineral": mineral, "country": country, "mineral_type": mineral_type, "operator": operator},
+        "source": "static-geospatial",
+        "timestamp": _utc_now_iso(),
+    }
+
+
+async def fetch_stock_exchanges(
+    tier: str | None = None,
+    country: str | None = None,
+    currency: str | None = None,
+) -> dict:
+    """Query global stock exchanges (92 exchanges, 4 tiers)."""
+    exs = query_exchanges(tier=tier, country=country, currency=currency)
+    total_mcap = sum(e["market_cap_usd_t"] for e in exs)
+    by_tier: dict[str, int] = {}
+    for e in exs:
+        by_tier[e["tier"]] = by_tier.get(e["tier"], 0) + 1
+    return {
+        "exchanges": exs,
+        "count": len(exs),
+        "total_in_database": len(STOCK_EXCHANGES),
+        "total_market_cap_usd_t": round(total_mcap, 2),
+        "by_tier": by_tier,
+        "filters": {"tier": tier, "country": country, "currency": currency},
         "source": "static-geospatial",
         "timestamp": _utc_now_iso(),
     }

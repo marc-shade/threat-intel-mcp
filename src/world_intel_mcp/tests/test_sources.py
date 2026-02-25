@@ -587,3 +587,322 @@ async def test_fetch_ucdp_events(fetcher: Fetcher) -> None:
     assert result["count"] == 1
     assert result["events"][0]["country"] == "Ukraine"
     assert result["total_fatalities_best"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Hacker News
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_hacker_news(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.hacker_news import fetch_hacker_news
+
+    respx.get("https://hacker-news.firebaseio.com/v0/topstories.json").mock(
+        return_value=httpx.Response(200, json=[101, 102])
+    )
+    respx.get("https://hacker-news.firebaseio.com/v0/item/101.json").mock(
+        return_value=httpx.Response(200, json={
+            "id": 101, "title": "Show HN: AI Tool", "url": "https://example.com",
+            "score": 200, "by": "user1", "time": 1700000000, "descendants": 50,
+        })
+    )
+    respx.get("https://hacker-news.firebaseio.com/v0/item/102.json").mock(
+        return_value=httpx.Response(200, json={
+            "id": 102, "title": "Rust 2.0", "url": "https://example.com/rust",
+            "score": 150, "by": "user2", "time": 1700001000, "descendants": 30,
+        })
+    )
+
+    result = await fetch_hacker_news(fetcher, limit=2)
+    assert result["source"] == "hackernews"
+    assert result["count"] == 2
+    assert result["stories"][0]["score"] >= result["stories"][1]["score"]
+
+
+# ---------------------------------------------------------------------------
+# GitHub Trending
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_trending_repos(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.github_trending import fetch_trending_repos
+
+    respx.get(url__regex=r".*api\.github\.com/search/repositories.*").mock(
+        return_value=httpx.Response(200, json={
+            "total_count": 1,
+            "items": [{
+                "full_name": "user/cool-repo",
+                "description": "A cool tool",
+                "html_url": "https://github.com/user/cool-repo",
+                "stargazers_count": 500,
+                "forks_count": 20,
+                "language": "Python",
+                "created_at": "2026-02-20T00:00:00Z",
+                "topics": ["ai", "ml"],
+            }],
+        })
+    )
+
+    result = await fetch_trending_repos(fetcher, limit=5)
+    assert result["source"] == "github"
+    assert result["count"] == 1
+    assert result["repos"][0]["name"] == "user/cool-repo"
+    assert result["repos"][0]["stars"] == 500
+
+
+# ---------------------------------------------------------------------------
+# arXiv Papers
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_arxiv_papers(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.arxiv_papers import fetch_arxiv_papers
+
+    arxiv_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <id>http://arxiv.org/abs/2602.12345v1</id>
+        <title>Attention Is Still All You Need</title>
+        <summary>We show transformers continue to dominate.</summary>
+        <author><name>Jane Doe</name></author>
+        <author><name>John Smith</name></author>
+        <published>2026-02-20T00:00:00Z</published>
+        <link href="http://arxiv.org/abs/2602.12345v1" rel="alternate"/>
+        <link href="http://arxiv.org/pdf/2602.12345v1" title="pdf" rel="related"/>
+        <category term="cs.AI"/>
+        <category term="cs.LG"/>
+      </entry>
+    </feed>"""
+
+    respx.get(url__regex=r".*export\.arxiv\.org/api/query.*").mock(
+        return_value=httpx.Response(200, text=arxiv_xml)
+    )
+
+    result = await fetch_arxiv_papers(fetcher, limit=5)
+    assert result["source"] == "arxiv"
+    assert result["count"] == 1
+    assert "Attention" in result["papers"][0]["title"]
+    assert len(result["papers"][0]["authors"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# USA Spending
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_usa_spending(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.usa_spending import fetch_usa_spending
+
+    respx.get(url__regex=r".*api\.usaspending\.gov.*").mock(
+        return_value=httpx.Response(200, json={
+            "results": [{
+                "agency_name": "Department of Defense",
+                "abbreviation": "DOD",
+                "current_total_budget_authority_amount": 850000000000,
+                "obligated_amount": 700000000000,
+                "outlay_amount": 650000000000,
+                "agency_id": 97,
+            }],
+            "page_metadata": {"total": 1},
+        })
+    )
+
+    result = await fetch_usa_spending(fetcher, limit=5)
+    assert result["source"] == "usaspending"
+    assert result["count"] == 1
+    assert result["agencies"][0]["name"] == "Department of Defense"
+
+
+# ---------------------------------------------------------------------------
+# Environmental Events (NASA EONET)
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_environmental_events(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.environmental import fetch_environmental_events
+
+    respx.get(url__regex=r".*eonet\.gsfc\.nasa\.gov.*").mock(
+        return_value=httpx.Response(200, json={
+            "events": [{
+                "id": "EONET_1234",
+                "title": "Wildfire in California",
+                "categories": [{"id": "wildfires", "title": "Wildfires"}],
+                "sources": [{"id": "InciWeb", "url": "https://inciweb.example.com"}],
+                "geometry": [{"date": "2026-02-20T00:00:00Z", "coordinates": [-119.5, 34.5]}],
+            }],
+        })
+    )
+
+    result = await fetch_environmental_events(fetcher, days=7)
+    assert result["source"] == "eonet"
+    assert result["count"] == 1
+    assert "Wildfire" in result["events"][0]["title"]
+
+
+# ---------------------------------------------------------------------------
+# Disaster Alerts (GDACS)
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_disaster_alerts(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.environmental import fetch_disaster_alerts
+
+    gdacs_geojson = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "properties": {
+                "eventtype": "EQ",
+                "eventname": "M6.5 Earthquake",
+                "alertlevel": "orange",
+                "alertscore": 2.5,
+                "severity": {"value": 6.5, "unit": "M"},
+                "country": "Turkey",
+                "fromdate": "2026-02-20T12:00:00Z",
+                "todate": "2026-02-20T12:05:00Z",
+                "url": {"report": "https://gdacs.example.com/report"},
+                "population": {"value": 500000},
+            },
+            "geometry": {"type": "Point", "coordinates": [29.0, 38.5]},
+        }],
+    }
+
+    respx.get(url__regex=r".*gdacs\.org.*").mock(
+        return_value=httpx.Response(200, json=gdacs_geojson)
+    )
+
+    result = await fetch_disaster_alerts(fetcher)
+    assert result["source"] == "gdacs"
+    assert result["count"] == 1
+    assert result["alerts"][0]["event_type"] == "EQ"
+    assert result["alerts"][0]["alert_level"] == "orange"
+
+
+# ---------------------------------------------------------------------------
+# Geospatial — Extended datasets (static, no HTTP mock needed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_undersea_cables() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_undersea_cables
+
+    result = await fetch_undersea_cables()
+    assert result["count"] > 0
+    assert result["source"] == "static-geospatial"
+    assert "total_length_km" in result
+    assert "total_capacity_tbps" in result
+
+
+@pytest.mark.asyncio
+async def test_fetch_ai_datacenters() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_ai_datacenters
+
+    result = await fetch_ai_datacenters(country="USA")
+    assert result["count"] > 0
+    assert result["source"] == "static-geospatial"
+    assert "total_power_mw" in result
+
+
+@pytest.mark.asyncio
+async def test_fetch_spaceports() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_spaceports
+
+    result = await fetch_spaceports()
+    assert result["count"] > 0
+    assert result["source"] == "static-geospatial"
+
+
+@pytest.mark.asyncio
+async def test_fetch_critical_minerals() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_critical_minerals
+
+    result = await fetch_critical_minerals(mineral="lithium")
+    assert result["count"] > 0
+    assert all(d["mineral"] == "lithium" for d in result["deposits"])
+
+
+@pytest.mark.asyncio
+async def test_fetch_stock_exchanges() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_stock_exchanges
+
+    result = await fetch_stock_exchanges(tier="mega")
+    assert result["count"] > 0
+    assert all(e["tier"] == "mega" for e in result["exchanges"])
+    assert "total_market_cap_usd_t" in result
+
+
+# ---------------------------------------------------------------------------
+# Country Stocks
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_country_stocks(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.markets import fetch_country_stocks
+
+    chart_response = {
+        "chart": {
+            "result": [{
+                "meta": {
+                    "symbol": "^GSPC",
+                    "regularMarketPrice": 5200.0,
+                    "regularMarketChangePercent": 0.75,
+                    "currency": "USD",
+                }
+            }]
+        }
+    }
+
+    respx.get(url__regex=r".*query1\.finance\.yahoo\.com.*").mock(
+        return_value=httpx.Response(200, json=chart_response)
+    )
+
+    result = await fetch_country_stocks(fetcher, country="USA")
+    assert result["source"] == "yahoo-finance"
+    assert result["country"] == "USA"
+    assert "quote" in result
+
+
+# ---------------------------------------------------------------------------
+# Aircraft Batch
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_aircraft_details_batch(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.military import fetch_aircraft_details_batch
+
+    respx.get(url__regex=r".*hexdb\.io/api/v1/aircraft/ae1234.*").mock(
+        return_value=httpx.Response(200, json={
+            "Registration": "12-3456",
+            "Type": "C-17A",
+            "Operator": "USAF",
+        })
+    )
+    respx.get(url__regex=r".*hexdb\.io/api/v1/aircraft/ae5678.*").mock(
+        return_value=httpx.Response(200, json={
+            "Registration": "78-9012",
+            "Type": "KC-135R",
+            "Operator": "USAF",
+        })
+    )
+
+    result = await fetch_aircraft_details_batch(fetcher, icao24_list=["ae1234", "ae5678"])
+    assert result["source"] == "hexdb"
+    assert result["count"] == 2
+    assert result["requested"] == 2

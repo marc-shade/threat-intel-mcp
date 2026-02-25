@@ -337,6 +337,39 @@ async def fetch_theater_posture(fetcher: Fetcher) -> dict:
     return response
 
 
+async def fetch_aircraft_details_batch(fetcher: Fetcher, icao24_list: list[str]) -> dict:
+    """Look up multiple aircraft by ICAO24 hex codes in parallel.
+
+    Args:
+        fetcher: Shared HTTP fetcher.
+        icao24_list: List of ICAO24 hex addresses (max 20).
+
+    Returns:
+        Dict with aircraft[] details, count, source, timestamp.
+    """
+    icao24_list = icao24_list[:20]  # cap at 20
+
+    async def _lookup(icao: str) -> dict | None:
+        result = await fetch_aircraft_details(fetcher, icao)
+        ac = result.get("aircraft", {})
+        if not ac:
+            return None
+        ac["icao24"] = icao
+        return ac
+
+    tasks = [_lookup(icao) for icao in icao24_list]
+    results = await asyncio.gather(*tasks)
+
+    aircraft = [a for a in results if a is not None]
+    return {
+        "aircraft": aircraft,
+        "count": len(aircraft),
+        "requested": len(icao24_list),
+        "source": "hexdb",
+        "timestamp": _utc_now_iso(),
+    }
+
+
 async def fetch_aircraft_details(fetcher: Fetcher, icao24: str) -> dict:
     """Look up detailed aircraft information from hexdb.io (free, no API key).
 
