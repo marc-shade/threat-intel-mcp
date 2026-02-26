@@ -19,7 +19,6 @@ from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
 from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber
-from .reports import generator as report_gen
 
 console = Console()
 
@@ -859,60 +858,6 @@ def instability(ctx: click.Context, country_code: str | None) -> None:
         console.print(table)
 
 
-# ---------------------------------------------------------------------------
-# Reports
-# ---------------------------------------------------------------------------
-
-@main.group()
-def report() -> None:
-    """Generate intelligence reports (HTML)."""
-
-
-main.add_command(report)
-
-
-@report.command(name="daily")
-@click.option("--output-dir", "-o", default=None, help="Output directory")
-def report_daily(output_dir: str | None) -> None:
-    """Generate daily intelligence brief (HTML)."""
-    console.print("[bold]Generating daily brief...[/bold]")
-    result = _run(report_gen.generate_daily_brief(output_dir=output_dir))
-    console.print(f"[green]Report saved:[/green] {result.get('file_path', '?')}")
-    summary = result.get("summary", {})
-    console.print(f"  Quotes: {summary.get('market_quotes', 0)} | "
-                  f"Conflicts: {summary.get('conflict_events', 0)} | "
-                  f"Threats: {summary.get('cyber_threats', 0)} | "
-                  f"Quakes: {summary.get('earthquakes', 0)}")
-
-
-@report.command(name="threat")
-@click.option("--output-dir", "-o", default=None, help="Output directory")
-def report_threat(output_dir: str | None) -> None:
-    """Generate threat landscape report (HTML)."""
-    console.print("[bold]Generating threat landscape...[/bold]")
-    result = _run(report_gen.generate_threat_landscape(output_dir=output_dir))
-    console.print(f"[green]Report saved:[/green] {result.get('file_path', '?')}")
-
-
-@report.command(name="market")
-@click.option("--output-dir", "-o", default=None, help="Output directory")
-def report_market(output_dir: str | None) -> None:
-    """Generate market overview report (HTML)."""
-    console.print("[bold]Generating market overview...[/bold]")
-    result = _run(report_gen.generate_market_overview(output_dir=output_dir))
-    console.print(f"[green]Report saved:[/green] {result.get('file_path', '?')}")
-
-
-@report.command(name="dossier")
-@click.argument("country_code")
-@click.option("--output-dir", "-o", default=None, help="Output directory")
-def report_dossier(country_code: str, output_dir: str | None) -> None:
-    """Generate country dossier report (HTML)."""
-    console.print(f"[bold]Generating dossier for {country_code}...[/bold]")
-    result = _run(report_gen.generate_country_dossier(
-        country_code=country_code, output_dir=output_dir,
-    ))
-    console.print(f"[green]Report saved:[/green] {result.get('file_path', '?')}")
 
 
 # ---------------------------------------------------------------------------

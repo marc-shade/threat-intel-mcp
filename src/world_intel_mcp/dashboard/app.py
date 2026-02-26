@@ -52,6 +52,7 @@ from world_intel_mcp.analysis.posture import fetch_strategic_posture
 from world_intel_mcp.analysis.exposure import fetch_population_exposure
 from world_intel_mcp.analysis.situation import fetch_situation_brief
 from world_intel_mcp.sources.fleet import fetch_fleet_report
+from world_intel_mcp.sources.usni_fleet import fetch_usni_fleet
 from world_intel_mcp.config.countries import INTEL_HOTSPOTS, STRATEGIC_WATERWAYS
 from world_intel_mcp.config.geospatial import MILITARY_BASES, STRATEGIC_PORTS, PIPELINES, NUCLEAR_FACILITIES
 from world_intel_mcp.sources.infrastructure import CABLE_CORRIDORS
@@ -120,6 +121,7 @@ async def _fetch_overview() -> dict:
         "service_status": service_status.fetch_service_status(fetcher),
         "strategic_posture": fetch_strategic_posture(fetcher),
         "fleet_report": fetch_fleet_report(fetcher),
+        "usni_fleet": fetch_usni_fleet(fetcher),
         "population_exposure": fetch_population_exposure(fetcher),
         "domestic_flights": aviation.fetch_domestic_flights(fetcher),
         "traffic_flow": traffic.fetch_traffic_flow(fetcher),
@@ -205,6 +207,7 @@ async def _fetch_overview() -> dict:
     # Attach source health + timestamp
     result["source_health"] = _breaker.status() if _breaker else {}
     result["cache_stats"] = _cache.stats() if _cache else {}
+    result["cache_freshness"] = _cache.freshness() if _cache else {}
     result["timestamp"] = datetime.now(timezone.utc).isoformat()
 
     return result
@@ -281,51 +284,10 @@ async def api_health(request):
 
 
 async def api_report_pdf(request):
-    """Generate a PDF daily brief report.
-
-    Renders the daily_brief.html template with live data, then converts
-    to PDF via weasyprint.  Requires ``pip install world-intel-mcp[pdf]``.
-    """
-    try:
-        from weasyprint import HTML as WeasyHTML
-    except ImportError:
-        return JSONResponse(
-            {"error": "weasyprint not installed — run: pip install world-intel-mcp[pdf]"},
-            status_code=501,
-        )
-
-    from world_intel_mcp.reports.html_report import render_template
-
-    data = await _fetch_overview()
-
-    context = {
-        "title": "Daily Intelligence Brief",
-        "generated_at": data.get("timestamp", ""),
-        "market_quotes": data.get("market_quotes", {}),
-        "crypto_quotes": data.get("crypto_quotes", {}),
-        "macro_signals": data.get("macro_signals", {}),
-        "earthquakes": data.get("earthquakes", {}),
-        "cyber_threats": data.get("cyber_threats", {}),
-        "news_feed": data.get("news_feed", {}),
-        "military_flights": data.get("military_flights", {}),
-        "internet_outages": data.get("internet_outages", {}),
-        "climate_anomalies": data.get("climate_anomalies", {}),
-        "displacement": data.get("displacement", {}),
-        "risk_scores": data.get("risk_scores", {}),
-        "alert_digest": data.get("alert_digest", {}),
-    }
-
-    html_str = render_template("daily_brief.html", context)
-    pdf_bytes = WeasyHTML(string=html_str).write_pdf()
-
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="intel-brief-{now_str}.pdf"',
-            "Access-Control-Allow-Origin": "*",
-        },
+    """PDF report generation (removed — use the live dashboard instead)."""
+    return JSONResponse(
+        {"error": "PDF reports removed — use the live dashboard at /"},
+        status_code=410,
     )
 
 

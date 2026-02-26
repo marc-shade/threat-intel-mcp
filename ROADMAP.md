@@ -1,8 +1,8 @@
 # World Intel MCP — Feature Parity Roadmap
 
 **Benchmark**: [koala73/worldmonitor](https://github.com/koala73/worldmonitor)
-**Updated**: 2026-02-24
-**Current tools**: 68 (67 intel + 1 status)
+**Updated**: 2026-02-26
+**Current tools**: 80 (79 intel + 1 status)
 
 ---
 
@@ -16,9 +16,9 @@
 
 ---
 
-## 1. Data Sources — Complete Inventory (59 intel tools)
+## 1. Data Sources — Complete Inventory
 
-### Markets & Economics (10 tools)
+### Markets & Economics (11 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_market_quotes` | `list-market-quotes` | :white_check_mark: |
@@ -31,13 +31,16 @@
 | `intel_energy_prices` | `get-energy-prices` | :white_check_mark: |
 | `intel_fred_series` | `get-fred-series` | :white_check_mark: |
 | `intel_world_bank_indicators` | `list-world-bank-indicators` | :white_check_mark: |
+| `intel_country_stocks` | Country main index ticker | :white_check_mark: |
 
-### Natural Disasters & Climate (3 tools)
+### Natural Disasters & Climate (5 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_earthquakes` | `list-earthquakes` | :white_check_mark: |
 | `intel_wildfires` | `list-fire-detections` | :white_check_mark: |
 | `intel_climate_anomalies` | `list-climate-anomalies` | :white_check_mark: |
+| `intel_environmental_events` | NASA EONET events | :white_check_mark: |
+| `intel_disaster_alerts` | GDACS global disaster alerts | :white_check_mark: |
 
 ### Conflict & Security (4 tools)
 | Tool | WM Equivalent | Status |
@@ -47,15 +50,17 @@
 | `intel_unrest_events` | ACLED protests + GDELT dedup | :white_check_mark: |
 | `intel_cyber_threats` | `list-cyber-threats` | :white_check_mark: |
 
-### Military & Defense (6 tools)
+### Military & Defense (8 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_military_flights` | `list-military-flights` | :white_check_mark: |
 | `intel_theater_posture` | `get-theater-posture` | :white_check_mark: |
 | `intel_aircraft_details` | `get-aircraft-details` | :white_check_mark: |
+| `intel_aircraft_batch` | Batch ICAO24 lookup | :white_check_mark: |
 | `intel_vessel_snapshot` | `get-vessel-snapshot` | :white_check_mark: |
 | `intel_military_surge` | `military-surge.ts` | :white_check_mark: |
 | `intel_military_bases` | Static dataset (70 bases) | :white_check_mark: |
+| `intel_usni_fleet` | USNI Fleet Tracker weekly disposition | :white_check_mark: |
 
 ### Infrastructure & Maritime (6 tools)
 | Tool | WM Equivalent | Status |
@@ -78,7 +83,7 @@
 ### News & Information (4 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
-| `intel_news_feed` | 80+ RSS feeds, 4-tier sources | :white_check_mark: |
+| `intel_news_feed` | 90+ RSS feeds, 4-tier sources | :white_check_mark: |
 | `intel_trending_keywords` | trending-keywords service | :white_check_mark: |
 | `intel_gdelt_search` | `search-gdelt-documents` | :white_check_mark: |
 | `intel_ai_releases` | AI model/paper tracker | :white_check_mark: |
@@ -90,7 +95,7 @@
 | `intel_airport_delays` | `list-airport-delays` | :white_check_mark: |
 | `intel_shipping_index` | Yahoo Finance shipping ETFs | :white_check_mark: |
 
-### Analysis & Intelligence (11 tools)
+### Analysis & Intelligence (9 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_risk_scores` | `get-risk-scores` | :white_check_mark: |
@@ -102,17 +107,13 @@
 | `intel_hotspot_escalation` | `hotspot-escalation.ts` | :white_check_mark: |
 | `intel_alert_digest` | Cross-domain alert synthesis | :white_check_mark: |
 | `intel_weekly_trends` | Temporal trend analysis | :white_check_mark: |
-| `intel_daily_brief` | — | :white_check_mark: |
-| `intel_threat_landscape` | `StrategicPosturePanel` | :white_check_mark: |
 
-### Country & Geopolitical (5 tools)
+### Country & Geopolitical (3 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_country_brief` | `get-country-intel-brief` | :white_check_mark: |
-| `intel_country_dossier` | CountryBriefPage | :white_check_mark: |
 | `intel_election_calendar` | Election proximity risk | :white_check_mark: |
 | `intel_sanctions_search` | OFAC SDN search | :white_check_mark: |
-| `intel_nuclear_facilities` | Static dataset (24 facilities) | :white_check_mark: |
 
 ### Strategic Synthesis (4 tools)
 | Tool | WM Equivalent | Status |
@@ -122,12 +123,32 @@
 | `intel_fleet_report` | Naval fleet activity report | :white_check_mark: |
 | `intel_population_exposure` | Population near active events | :white_check_mark: |
 
+### Tech & Science (3 tools)
+| Tool | WM Equivalent | Status |
+|------|---------------|--------|
+| `intel_hacker_news` | Top HN stories (Firebase API) | :white_check_mark: |
+| `intel_trending_repos` | GitHub trending repos | :white_check_mark: |
+| `intel_arxiv_papers` | Recent AI/ML papers | :white_check_mark: |
+
+### Government (1 tool)
+| Tool | WM Equivalent | Status |
+|------|---------------|--------|
+| `intel_usa_spending` | USAspending.gov federal data | :white_check_mark: |
+
 ### Specialist (3 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_space_weather` | NOAA/SWPC feeds | :white_check_mark: |
 | `intel_nuclear_monitor` | USGS seismic near test sites | :white_check_mark: |
 | `intel_service_status` | Cloudflare/AWS/Azure/GCP | :white_check_mark: |
+
+### NLP Intelligence (4 tools)
+| Tool | WM Equivalent | Status |
+|------|---------------|--------|
+| `intel_extract_entities` | Regex NER (28 leaders, 41 orgs, 36 APTs) | :white_check_mark: |
+| `intel_classify_event` | Keyword threat classification (14 categories) | :white_check_mark: |
+| `intel_news_clusters` | Jaccard similarity clustering | :white_check_mark: |
+| `intel_keyword_spikes` | Welford's algorithm spike detection | :white_check_mark: |
 
 ### System (1 tool)
 | Tool | Purpose | Status |
@@ -150,17 +171,17 @@
 | Nuclear test sites | 5 sites with monitoring | config/countries.py | :white_check_mark: |
 | Countries config | 22 nations with risk baselines | config/countries.py | :white_check_mark: |
 | Major cities | 105 cities (pop > 2M, 1B coverage) | config/population.py | :white_check_mark: |
-| Undersea cables | Cable routes with landing points | — | :red_circle: |
-| AI datacenters | Major clusters globally | — | :red_circle: |
-| Spaceports | Launch facilities worldwide | — | :red_circle: |
-| Critical minerals | Strategic mineral locations | — | :red_circle: |
-| Stock exchanges | 92 global exchanges | — | :red_circle: |
+| Undersea cables | 34 cables with landing points | `intel_undersea_cables` | :white_check_mark: |
+| AI datacenters | 48 global clusters | `intel_ai_datacenters` | :white_check_mark: |
+| Spaceports | 27 launch facilities | `intel_spaceports` | :white_check_mark: |
+| Critical minerals | 27 deposit types | `intel_critical_minerals` | :white_check_mark: |
+| Stock exchanges | 82 global exchanges | `intel_stock_exchanges` | :white_check_mark: |
 
 ---
 
 ## 3. RSS Feed Coverage
 
-Expanded from 20 to **80+ feeds** across **15+ categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
+Expanded to **90+ feeds** across **16 categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
 
 | Category | Count | Status |
 |----------|-------|--------|
@@ -178,65 +199,53 @@ Expanded from 20 to **80+ feeds** across **15+ categories** with 4-tier source r
 | Health (WHO/ProMED) | 3+ | :white_check_mark: |
 | Space weather | 2+ | :white_check_mark: |
 | AI/ML releases | 3+ | :white_check_mark: |
-| Latin America | 0 | :red_circle: |
-| Multilingual feeds | 0 | :red_circle: |
+| Latin America | 8+ | :white_check_mark: |
+| Multilingual (ES/FR/DE) | 7+ | :white_check_mark: |
 
 ---
 
-## 4. What's Still Missing
+## 4. Dashboard
 
-### Data Sources (P2-P3)
-| # | Feature | Priority | Effort |
-|---|---------|----------|--------|
-| 1 | **Country stock index lookup** — ticker for any country's main index | P2 | S |
-| 2 | **Aircraft details batch** — batch lookup by multiple ICAO24 codes | P3 | S |
-| 3 | **USNI fleet tracker** — US Navy fleet disposition from USNI News | P2 | M |
-| 4 | **Wingbits ADS-B** — crowd-sourced ADS-B coverage | P3 | S |
-| 5 | ~~**Population exposure**~~ — :white_check_mark: `intel_population_exposure` | — | — |
-| 6 | **Hacker News items** — top HN stories | P3 | S |
-| 7 | **Trending repos** — GitHub trending repos | P3 | S |
-| 8 | **arXiv papers** — recent AI/ML papers | P3 | S |
-| 9 | **PizzInt indicator** — pizza delivery patterns as OSINT proxy | P3 | S |
+Live Starlette app with SSE streaming at `intel-dashboard --port 8501`.
 
-### Analysis Layers (P2-P3)
-| # | Feature | Priority | Effort |
-|---|---------|----------|--------|
-| 10 | ~~**Strategic Posture Assessment**~~ — :white_check_mark: `intel_strategic_posture` | — | — |
-| 11 | ~~**World Brief**~~ — :white_check_mark: `intel_world_brief` (structured, data-driven) | — | — |
-| 12 | **USA Spending Tracker** — Federal contract data from USAspending.gov | P3 | S |
+| Feature | Status |
+|---------|--------|
+| SSE streaming (30s refresh) | :white_check_mark: 37 data streams |
+| Leaflet map (14 layers + 6 static) | :white_check_mark: |
+| 12 expandable drawer sections | :white_check_mark: |
+| USNI Fleet Tracker drawer | :white_check_mark: |
+| Data freshness monitoring drawer | :white_check_mark: |
+| Per-source circuit breaker health | :white_check_mark: |
+| AI situation brief (Ollama-powered) | :white_check_mark: |
+| Static HTML reports | Removed (dashboard replaces) |
 
-### Static Datasets (P3)
-| # | Feature | Priority | Effort |
-|---|---------|----------|--------|
-| 17 | **Undersea cable routes** — landing points (we have health, not routes) | P2 | M |
-| 18 | **AI datacenters** — 111 major clusters globally | P3 | S |
-| 19 | **Spaceports** — launch facilities worldwide | P3 | S |
-| 20 | **Critical mineral deposits** — strategic mineral locations | P3 | S |
-| 21 | **Stock exchanges** — 92 global exchanges with coordinates | P3 | M |
+---
 
-### System Architecture (P2)
-| # | Feature | Priority | Effort |
-|---|---------|----------|--------|
-| 22 | **Redis caching backend** — persistent TTL cache (currently in-memory) | P1 | M |
-| 23 | **Circuit breaker per-source** — configurable thresholds per API | P2 | S |
-| 24 | **Data freshness monitoring** — per-source staleness tracking | P2 | S |
+## 5. System Architecture
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| SQLite WAL-mode cache | :white_check_mark: | Persistent TTL, stale fallback |
+| Per-source circuit breaker | :white_check_mark: | Configurable thresholds |
+| Data freshness monitoring | :white_check_mark: | Per-source staleness in dashboard |
+| Per-coro timeout (45s) | :white_check_mark: | No single source blocks dashboard |
 
 ---
 
 ## Completed Phases
 
-### Phase 1-4: Foundation (0 -> 39 tools)
-Core data sources: markets, crypto, macro, earthquakes, wildfires, ACLED, UCDP, humanitarian, military flights, theater posture, aircraft, internet outages, cable health, nav warnings, climate, prediction markets, displacement, airport delays, cyber threats, news feeds, GDELT, trending keywords, country briefs, risk scores, instability index, signal convergence, daily brief, country dossier, threat landscape.
+### Phase 1-4: Foundation (0 -> 36 tools)
+Core data sources: markets, crypto, macro, earthquakes, wildfires, ACLED, UCDP, humanitarian, military flights, theater posture, aircraft, internet outages, cable health, nav warnings, climate, prediction markets, displacement, airport delays, cyber threats, news feeds, GDELT, trending keywords, country briefs, risk scores, instability index, signal convergence.
 
-### Phase 5: Core Analysis Engine (+3 = 42 tools)
+### Phase 5: Core Analysis Engine (+3 = 39 tools)
 `intel_focal_points`, `intel_signal_summary`, `intel_temporal_anomalies`
 Countries config with 22 nations, intel hotspots, conflict zones, strategic waterways. CII v2 upgraded with multi-signal weighted blend. Welford's online algorithm for temporal baseline anomaly detection.
 
-### Phase 6: Military & Infrastructure Intelligence (+6 = 48 tools)
+### Phase 6: Military & Infrastructure Intelligence (+6 = 45 tools)
 `intel_vessel_snapshot`, `intel_military_surge`, `intel_cascade_analysis`, `intel_hotspot_escalation`, `intel_commodity_quotes`, `intel_unrest_events`
 AIS vessel tracking, military surge detection in 17 sensitive regions, infrastructure cascade analysis, hotspot escalation scoring for 22 locations.
 
-### Phase 7: Domain Expansion (+10 = 58 tools)
+### Phase 7: Domain Expansion (+10 = 55 tools)
 `intel_space_weather`, `intel_ai_releases`, `intel_disease_outbreaks`, `intel_sanctions_search`, `intel_election_calendar`, `intel_shipping_index`, `intel_social_signals`, `intel_nuclear_monitor`, `intel_alert_digest`, `intel_weekly_trends`
 80+ RSS feeds with 4-tier source ranking. WHO/ProMED/CIDRAP health monitoring. OFAC sanctions search. Election proximity risk scoring. Reddit social signals. Nuclear test site seismic monitoring. Cross-domain alert digest. Temporal weekly trend analysis.
 
@@ -252,19 +261,10 @@ Regex-based NER (28 leaders, 41 orgs, 25 companies, 36 APT groups, CVE extractio
 `intel_strategic_posture`, `intel_world_brief`, `intel_fleet_report`, `intel_population_exposure`
 Composite strategic posture assessment from 9 weighted domains (military, political, conflict, infrastructure, economic, cyber, health, climate, space). Structured world intelligence brief aggregating posture, focal points, news clusters, temporal anomalies, and keyword spikes. Naval fleet activity report combining theater posture, vessel snapshots, and surge detections. Population exposure analysis near active events using 105-city dataset (1B pop coverage).
 
----
+### Phase 11: Extended Data & Geospatial (+12 = 80 tools)
+`intel_country_stocks`, `intel_aircraft_batch`, `intel_hacker_news`, `intel_trending_repos`, `intel_arxiv_papers`, `intel_usa_spending`, `intel_environmental_events`, `intel_disaster_alerts`, `intel_undersea_cables`, `intel_ai_datacenters`, `intel_spaceports`, `intel_critical_minerals`, `intel_stock_exchanges`, `intel_usni_fleet`
 
-## Next Phase
-
-### Phase 11: Data Expansion
-**Goal**: Fill remaining data gaps and static datasets.
-
-1. **Country stock index lookup** — ticker for any country's main stock index
-2. **USNI fleet tracker** — US Navy fleet disposition scraping
-3. **Hacker News** — top HN stories via public API
-4. **Trending repos** — GitHub trending repositories
-
-New tools: `intel_country_stocks`, `intel_usni_fleet`, `intel_hacker_news`, `intel_trending_repos`
+Static datasets completed: 34 undersea cables, 48 AI datacenters, 27 spaceports, 27 critical mineral deposits, 82 stock exchanges. USNI Fleet Tracker for Navy disposition. RSS feeds expanded to 90+ across 16 categories (added Latin America 8+, multilingual ES/FR/DE 7+). Data freshness monitoring added to dashboard. Static HTML report generation removed (live dashboard replaces).
 
 ---
 
@@ -272,10 +272,10 @@ New tools: `intel_country_stocks`, `intel_usni_fleet`, `intel_hacker_news`, `int
 
 | Category | Have | Benchmark | Coverage |
 |----------|------|-----------|----------|
-| Data source tools | 68 | 42 | **162%** |
+| Data source tools | 80 | 42 | **190%** |
 | Analysis engines | 19 | 15 | **127%** |
-| Static datasets | 10 | 12 | 83% |
-| RSS feeds | 80+ | 150+ | 53% |
-| Strategic synthesis | Strategic posture + world brief + fleet report + population exposure | Dashboard-only | **Exceeds** |
+| Static datasets | 15 | 12 | **125%** |
+| RSS feeds | 90+ | 150+ | 60% |
+| Strategic synthesis | Posture + brief + fleet + exposure + USNI | Dashboard-only | **Exceeds** |
 
-**Bottom line**: 68 tools across 27 domains, exceeding WorldMonitor benchmark by 62% in tool count and 27% in analysis engines. Strategic synthesis layer complete — composite risk assessment, structured intelligence briefs, fleet reporting, and population exposure analysis. Remaining gaps: RSS feed breadth (80+ vs 150+), static datasets (10 vs 12), a few niche data sources.
+**Bottom line**: 80 tools across 30 domains, exceeding WorldMonitor benchmark by 90% in tool count, 27% in analysis engines, and 25% in static datasets. All phases 1-11 complete. Live Starlette dashboard with 37 SSE streams, 14 map layers, and data freshness monitoring. No remaining critical gaps — only niche sources (Wingbits requires API key, PizzInt has no public API).

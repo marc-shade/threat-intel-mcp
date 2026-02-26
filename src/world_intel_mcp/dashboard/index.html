@@ -2461,6 +2461,49 @@ function updateDrawer(data) {
         });
     }
 
+    // ── USNI FLEET TRACKER ──
+    if (data.usni_fleet && !data.usni_fleet.error && data.usni_fleet.ship_count > 0) {
+        var uf = data.usni_fleet;
+        h += '<div class="sh">USNI FLEET TRACKER</div>';
+        h += '<div class="dim" style="font-size:0.6rem;padding:2px 0">' + esc(uf.report_title || '') + '</div>';
+        if (uf.force_totals && uf.force_totals.battle_force) {
+            var bf = uf.force_totals.battle_force;
+            var dep = uf.force_totals.deployed || {};
+            var uw = uf.force_totals.underway || {};
+            h += '<div class="mini-boxes" style="margin:6px 0">';
+            h += '<div class="mini-box"><div class="v">' + bf.total + '</div><div class="l">Battle Force</div></div>';
+            h += '<div class="mini-box"><div class="v">' + (dep.total || '?') + '</div><div class="l">Deployed</div></div>';
+            h += '<div class="mini-box"><div class="v">' + (uw.total || '?') + '</div><div class="l">Underway</div></div>';
+            h += '</div>';
+        }
+        if (uf.region_breakdown) {
+            var regions = Object.entries(uf.region_breakdown).sort(function(a,b){return b[1]-a[1];});
+            regions.forEach(function(r) {
+                h += '<div style="font-size:0.65rem;padding:1px 0"><span class="bright">' + esc(r[0]) + '</span> <span class="dim">' + r[1] + ' ships</span></div>';
+            });
+        }
+        (uf.ships || []).slice(0, 15).forEach(function(s) {
+            var cls = s.type === 'Aircraft Carrier' ? 'crit' : 'bright';
+            h += '<div style="font-size:0.65rem;padding:1px 0"><span class="' + cls + '">' + esc(s.name) + '</span> <span class="dim">(' + esc(s.hull_number) + ') ' + esc(s.region) + '</span></div>';
+        });
+    }
+
+    // ── DATA FRESHNESS ──
+    if (data.cache_freshness && Object.keys(data.cache_freshness).length > 0) {
+        var cf = data.cache_freshness;
+        var sources = Object.entries(cf).sort(function(a,b) { return a[1].last_updated_s_ago - b[1].last_updated_s_ago; });
+        var staleCount = sources.filter(function(s) { return s[1].is_stale; }).length;
+        h += '<div class="sh">DATA FRESHNESS</div>';
+        h += '<div class="dim" style="font-size:0.6rem;padding:2px 0">' + sources.length + ' sources tracked, ' + staleCount + ' stale</div>';
+        sources.forEach(function(s) {
+            var name = s[0], info = s[1];
+            var ageMin = Math.round(info.last_updated_s_ago / 60);
+            var cls = info.is_stale ? 'crit' : ageMin > 10 ? 'warn' : 'dim';
+            var label = ageMin < 1 ? '<1m' : ageMin + 'm';
+            h += '<div style="font-size:0.65rem;padding:1px 0"><span class="bright">' + esc(name) + '</span> <span class="' + cls + '">' + label + (info.is_stale ? ' STALE' : '') + '</span></div>';
+        });
+    }
+
     // ── AI SITUATION BRIEF ──
     if (data.situation_brief && !data.situation_brief.error && data.situation_brief.brief) {
         var sb = data.situation_brief;

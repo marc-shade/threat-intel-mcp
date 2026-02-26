@@ -10,7 +10,7 @@ conflict, military flights, infrastructure, and more.
 Phase 1: Markets, Economic, Seismology, Wildfire (14 tools).
 Phase 2: Conflict, Military, Infrastructure, Maritime, Climate (+10 = 24 tools).
 Phase 3: News, Intelligence, Prediction, Displacement, Aviation, Cyber (+9 = 33 tools).
-Phase 4: Reports — daily brief, country dossier, threat landscape (+3 = 36 tools).
+Phase 4: (reports removed — use live dashboard instead).
 Phase 5: Analysis — focal points, signal summary, temporal anomalies, CII v2 (+3 = 39 tools).
 Phase 6: Military & infrastructure intelligence (+6 = 45 tools).
 Phase 7: Health, sanctions, elections, shipping, social, nuclear, alerts, trends (+10 = 55 tools).
@@ -36,8 +36,7 @@ from mcp.types import Tool, TextContent
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial, hacker_news, github_trending, arxiv_papers, usa_spending, environmental
-from .reports import generator as report_gen
+from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial, hacker_news, github_trending, arxiv_papers, usa_spending, environmental, usni_fleet
 
 logging.basicConfig(
     level=os.environ.get("WORLD_INTEL_LOG_LEVEL", "INFO"),
@@ -455,39 +454,6 @@ TOOLS: list[Tool] = [
             },
         },
     ),
-    # --- Reports (3 tools) ---
-    Tool(
-        name="intel_daily_brief",
-        description="Generate a daily intelligence brief HTML report (markets, conflict, cyber, natural, predictions, trending). Returns file path.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "output_dir": {"type": "string", "description": "Custom output directory (default: $STORAGE_BASE/reports/intel/)"},
-            },
-        },
-    ),
-    Tool(
-        name="intel_country_dossier",
-        description="Generate a full country dossier HTML report (brief, instability index, conflict, displacement, economic). Returns file path.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "country_code": {"type": "string", "description": "ISO country code (e.g., UKR, SYR, MMR)"},
-                "output_dir": {"type": "string", "description": "Custom output directory"},
-            },
-            "required": ["country_code"],
-        },
-    ),
-    Tool(
-        name="intel_threat_landscape",
-        description="Generate a threat landscape HTML report (cyber threats, conflict, military, cable health, outages). Returns file path.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "output_dir": {"type": "string", "description": "Custom output directory"},
-            },
-        },
-    ),
     # --- Space Weather (1 tool) ---
     Tool(
         name="intel_space_weather",
@@ -854,6 +820,12 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- USNI Fleet (1 tool) ---
+    Tool(
+        name="intel_usni_fleet",
+        description="US Navy fleet disposition from USNI News Fleet Tracker. Extracts ships, hull numbers, carrier strike groups, regional deployment, and force totals from the latest weekly report.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
     # --- Environmental (2 tools) ---
     Tool(
         name="intel_environmental_events",
@@ -1104,16 +1076,6 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             from .analysis.alerts import fetch_weekly_trends
             return await fetch_weekly_trends(fetcher)
 
-        # Reports
-        case "intel_daily_brief":
-            return await report_gen.generate_daily_brief(output_dir=arguments.get("output_dir"))
-        case "intel_country_dossier":
-            return await report_gen.generate_country_dossier(
-                country_code=arguments["country_code"],
-                output_dir=arguments.get("output_dir"),
-            )
-        case "intel_threat_landscape":
-            return await report_gen.generate_threat_landscape(output_dir=arguments.get("output_dir"))
 
         # Service Status
         case "intel_service_status":
@@ -1238,6 +1200,10 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 agency=arguments.get("agency"),
                 limit=arguments.get("limit", 25),
             )
+
+        # USNI Fleet
+        case "intel_usni_fleet":
+            return await usni_fleet.fetch_usni_fleet(fetcher)
 
         # Environmental
         case "intel_environmental_events":

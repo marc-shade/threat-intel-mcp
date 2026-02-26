@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-World Intelligence MCP Server — 81 tools across 30 domains providing real-time global intelligence from free public APIs. Serves three interfaces: MCP stdio (for Claude Code/Cursor), a live Starlette dashboard with SSE, and a Click CLI with Rich output. Python 3.11+, built with hatchling.
+World Intelligence MCP Server — 80 tools across 30 domains providing real-time global intelligence from free public APIs. Serves three interfaces: MCP stdio (for Claude Code/Cursor), a live Starlette dashboard with SSE, and a Click CLI with Rich output. Python 3.11+, built with hatchling.
 
 ## Commands
 
@@ -23,7 +23,6 @@ pytest src/world_intel_mcp/tests/test_sources.py::test_fetch_market_quotes -v  #
 # CLI
 intel markets                    # stock indices
 intel earthquakes --min-mag 5.0  # USGS quakes
-intel report daily               # generate HTML report
 intel status                     # cache + circuit breaker health
 
 # Dashboard (requires [dashboard] extra)
@@ -51,8 +50,6 @@ dashboard/app.py (SSE)  ─┘                                                  
 **Source modules** (`sources/*.py`): Each module exports `async def fetch_*(fetcher: Fetcher, **kwargs) -> dict`. Pure data fetching — no MCP awareness. 30 modules covering markets, seismology, military, cyber, health, tech, environmental, etc.
 
 **Analysis modules** (`analysis/*.py`): Cross-domain intelligence that consumes outputs from multiple sources. Includes signal aggregation, instability indexing, NLP (entity extraction, classification, clustering, spike detection via Welford's algorithm), and strategic synthesis.
-
-**Reports** (`reports/*.py`): Jinja2-templated HTML/Markdown reports (daily brief, country dossier, threat landscape). `generator.py` orchestrates parallel source fetches. Output dir defaults to `$STORAGE_BASE/reports/intel` or `INTEL_REPORT_DIR` env var.
 
 **Static config** (`config/*.py`): Curated datasets — 22 intel hotspots, 70+ military bases, 40 ports, 24 pipelines, 24 nuclear facilities, 34 undersea cables, 48 AI datacenters, 27 spaceports, 27 mineral deposits, 82 stock exchanges, 105 major cities, 28 world leaders, 36 APT groups.
 
