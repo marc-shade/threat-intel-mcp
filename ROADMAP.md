@@ -85,7 +85,7 @@
 ### News & Information (4 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
-| `intel_news_feed` | 90+ RSS feeds, 4-tier sources | :white_check_mark: |
+| `intel_news_feed` | 100 RSS feeds, 4-tier sources | :white_check_mark: |
 | `intel_trending_keywords` | trending-keywords service | :white_check_mark: |
 | `intel_gdelt_search` | `search-gdelt-documents` | :white_check_mark: |
 | `intel_ai_releases` | AI model/paper tracker | :white_check_mark: |
@@ -186,26 +186,28 @@
 
 ## 3. RSS Feed Coverage
 
-Expanded to **90+ feeds** across **16 categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
+Expanded to **100 feeds** across **18 categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
 
 | Category | Count | Status |
 |----------|-------|--------|
-| Wire services | 8+ | :white_check_mark: |
-| Politics/World | 15+ | :white_check_mark: |
-| Middle East | 8+ | :white_check_mark: |
-| Defense/Military | 8+ | :white_check_mark: |
-| Think Tanks | 10+ | :white_check_mark: |
-| Government (US) | 6+ | :white_check_mark: |
-| Crisis/Intl Orgs | 4+ | :white_check_mark: |
-| Africa regional | 4+ | :white_check_mark: |
-| Asia regional | 6+ | :white_check_mark: |
-| Energy | 4+ | :white_check_mark: |
-| Cyber/Infosec | 6+ | :white_check_mark: |
-| Health (WHO/ProMED) | 3+ | :white_check_mark: |
-| Space weather | 2+ | :white_check_mark: |
-| AI/ML releases | 3+ | :white_check_mark: |
-| Latin America | 8+ | :white_check_mark: |
-| Multilingual (ES/FR/DE) | 7+ | :white_check_mark: |
+| Geopolitics | 9 | :white_check_mark: |
+| Security/Cyber | 8 | :white_check_mark: |
+| Technology | 6 | :white_check_mark: |
+| Finance | 6 | :white_check_mark: |
+| Defense/Military | 6 | :white_check_mark: |
+| Science | 6 | :white_check_mark: |
+| Think Tanks | 7 | :white_check_mark: |
+| Middle East | 4 | :white_check_mark: |
+| Asia-Pacific | 5 | :white_check_mark: |
+| Africa | 5 | :white_check_mark: |
+| Latin America | 8 | :white_check_mark: |
+| Multilingual (ES/FR/DE) | 7 | :white_check_mark: |
+| Energy | 5 | :white_check_mark: |
+| Government | 4 | :white_check_mark: |
+| Crisis/Intl Orgs | 4 | :white_check_mark: |
+| Europe | 4 | :white_check_mark: |
+| South Asia | 3 | :white_check_mark: |
+| Health | 3 | :white_check_mark: |
 
 ---
 
@@ -271,7 +273,7 @@ Composite strategic posture assessment from 9 weighted domains (military, politi
 ### Phase 11: Extended Data & Geospatial (+12 = 80 tools)
 `intel_country_stocks`, `intel_aircraft_batch`, `intel_hacker_news`, `intel_trending_repos`, `intel_arxiv_papers`, `intel_usa_spending`, `intel_environmental_events`, `intel_disaster_alerts`, `intel_undersea_cables`, `intel_ai_datacenters`, `intel_spaceports`, `intel_critical_minerals`, `intel_stock_exchanges`, `intel_usni_fleet`
 
-Static datasets completed: 34 undersea cables, 48 AI datacenters, 27 spaceports, 27 critical mineral deposits, 82 stock exchanges. USNI Fleet Tracker for Navy disposition. RSS feeds expanded to 90+ across 16 categories (added Latin America 8+, multilingual ES/FR/DE 7+). Data freshness monitoring added to dashboard. Static HTML report generation removed (live dashboard replaces).
+Static datasets completed: 34 undersea cables, 48 AI datacenters, 27 spaceports, 27 critical mineral deposits, 82 stock exchanges. USNI Fleet Tracker for Navy disposition. Data freshness monitoring added to dashboard. Static HTML report generation removed (live dashboard replaces).
 
 ### Phase 12: Financial Intelligence & Geospatial Expansion (+5 = 84 tools)
 `intel_btc_technicals`, `intel_central_bank_rates`, `intel_trade_routes`, `intel_cloud_regions`, `intel_financial_centers`
@@ -287,7 +289,7 @@ BTC technical analysis with SMA-50/200, Mayer Multiple, golden/death cross signa
 | Data source tools | 84 | 42 | **200%** |
 | Analysis engines | 19 | 15 | **127%** |
 | Static datasets | 18 | 12 | **150%** |
-| RSS feeds | 90+ | 150+ | 60% |
+| RSS feeds | 100 | 150+ | **67%** |
 | Strategic synthesis | Posture + brief + fleet + exposure + USNI | Dashboard-only | **Exceeds** |
 
-**Bottom line**: 84 tools across 30+ domains, exactly 2x WorldMonitor benchmark in tool count, 27% more analysis engines, and 50% more static datasets. All phases 1-12 complete. Live Starlette dashboard with 39 SSE streams, 14 map layers (with trade route markers), and data freshness monitoring.
+**Bottom line**: 84 tools across 30+ domains, exactly 2x WorldMonitor benchmark in tool count, 27% more analysis engines, and 50% more static datasets. 100 RSS feeds across 18 categories. All phases 1-12 complete. Live Starlette dashboard with 39 SSE streams, 14 map layers (with trade route markers), and data freshness monitoring.

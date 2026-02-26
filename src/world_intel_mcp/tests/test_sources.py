@@ -906,3 +906,280 @@ async def test_fetch_aircraft_details_batch(fetcher: Fetcher) -> None:
     assert result["source"] == "hexdb"
     assert result["count"] == 2
     assert result["requested"] == 2
+
+
+# ---------------------------------------------------------------------------
+# BTC Technicals (CoinGecko)
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_btc_technicals(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.markets import fetch_btc_technicals
+
+    # Generate 201 daily price points (enough for SMA-200)
+    prices = [[1700000000 + i * 86400, 90000 + i * 10] for i in range(201)]
+
+    respx.get("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart").mock(
+        return_value=httpx.Response(200, json={"prices": prices})
+    )
+
+    result = await fetch_btc_technicals(fetcher)
+    assert result["source"] == "coingecko"
+    assert result["price"] == prices[-1][1]
+    assert result["sma_50"] > 0
+    assert result["sma_200"] > 0
+    assert result["mayer_multiple"] > 0
+    assert result["cross_signal"] in ("golden_cross", "death_cross", "neutral")
+    assert result["ath_distance_pct"] <= 0  # Current price <= ATH
+    assert result["data_points"] == 201
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_btc_technicals_insufficient_data(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.markets import fetch_btc_technicals
+
+    # Only 10 data points — not enough for SMA-50
+    prices = [[1700000000 + i * 86400, 90000 + i * 10] for i in range(10)]
+
+    respx.get("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart").mock(
+        return_value=httpx.Response(200, json={"prices": prices})
+    )
+
+    result = await fetch_btc_technicals(fetcher)
+    assert "error" in result
+    assert result["source"] == "coingecko"
+
+
+# ---------------------------------------------------------------------------
+# Central Bank Rates
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_central_bank_rates_no_fred(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.central_banks import fetch_central_bank_rates
+
+    import os
+    os.environ.pop("FRED_API_KEY", None)
+
+    result = await fetch_central_bank_rates(fetcher)
+    assert result["source"] == "multi"
+    assert result["fred_available"] is False
+    # Should have all 15 banks (12 curated + 3 FRED-fallback curated)
+    assert result["count"] == 15
+    # Sorted by rate descending — CBRT (45%) should be first
+    assert result["rates"][0]["bank"] == "Central Bank of Turkey"
+    assert result["rates"][0]["rate"] == 45.00
+    # All should be curated source
+    assert all(r["source"] == "curated" for r in result["rates"])
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_central_bank_rates_with_fred(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.central_banks import fetch_central_bank_rates
+
+    import os
+    os.environ["FRED_API_KEY"] = "test_key_123"
+
+    fred_response = {
+        "observations": [
+            {"date": "2026-02-25", "value": "4.33"}
+        ]
+    }
+
+    respx.get("https://api.stlouisfed.org/fred/series/observations").mock(
+        return_value=httpx.Response(200, json=fred_response)
+    )
+
+    try:
+        result = await fetch_central_bank_rates(fetcher)
+        assert result["source"] == "multi"
+        assert result["fred_available"] is True
+        assert result["count"] == 15
+        # At least some should be from FRED
+        fred_sources = [r for r in result["rates"] if r["source"] == "fred"]
+        assert len(fred_sources) >= 1
+    finally:
+        os.environ.pop("FRED_API_KEY", None)
+
+
+# ---------------------------------------------------------------------------
+# USNI Fleet Tracker
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_usni_fleet(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.usni_fleet import fetch_usni_fleet
+
+    rss_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+    <channel>
+        <title>USNI News Fleet Tracker</title>
+        <item>
+            <title>USNI News Fleet and Marine Tracker: Feb. 24, 2026</title>
+            <link>https://news.usni.org/2026/02/24/fleet-tracker</link>
+            <pubDate>Mon, 24 Feb 2026 14:00:00 GMT</pubDate>
+            <description>
+            298 ships (237 USS, 61 USNS). 100 deployed (67 USS, 33 USNS). 72 underway (55 deployed, 17 local).
+            Carrier Strike Group 3 is currently conducting routine operations in the Western Pacific theater of operations, focused on maintaining freedom of navigation and regional security.
+            In the Philippine Sea, USS Abraham Lincoln (CVN-72) is conducting routine flight operations with embarked Carrier Air Wing Nine as part of a scheduled deployment to the Western Pacific region.
+            Meanwhile in the Mediterranean Sea near the coast of southern Europe, USS Spruance (DDG-111) is operating independently as part of standing NATO maritime forces conducting presence operations.
+            In the Persian Gulf near the Strait of Hormuz, Expeditionary Strike Group 7 continues its deployment supporting maritime security operations in the region.
+            USS Bataan (LHD-5) continues operations in the Red Sea supporting regional stability efforts and conducting routine training exercises with coalition partners.
+            </description>
+        </item>
+    </channel>
+    </rss>"""
+
+    respx.get("https://news.usni.org/category/fleet-tracker/feed").mock(
+        return_value=httpx.Response(200, text=rss_xml)
+    )
+
+    result = await fetch_usni_fleet(fetcher)
+    assert result["source"] == "usni-fleet-tracker"
+    assert result["ship_count"] >= 3  # CVN-72, DDG-111, LHD-5
+    assert result["report_title"] == "USNI News Fleet and Marine Tracker: Feb. 24, 2026"
+
+    # Check ships were extracted
+    hull_numbers = [s["hull_number"] for s in result["ships"]]
+    assert "CVN-72" in hull_numbers
+    assert "DDG-111" in hull_numbers
+    assert "LHD-5" in hull_numbers
+
+    # Check strike groups
+    sg_names = [sg["name"] for sg in result["strike_groups"]]
+    assert "CSG-3" in sg_names
+
+    # Check force totals extracted
+    assert result["force_totals"]["battle_force"]["total"] == 298
+    assert result["force_totals"]["deployed"]["total"] == 100
+    assert result["force_totals"]["underway"]["total"] == 72
+
+    # Check region classification (±200 char context windows may overlap in short text,
+    # but at least some ships should get classified to a known COCOM region)
+    regions = set(s["region"] for s in result["ships"])
+    assert len(regions - {"UNKNOWN"}) > 0  # At least one classified
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_usni_fleet_empty_feed(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.usni_fleet import fetch_usni_fleet
+
+    rss_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0"><channel><title>Empty</title></channel></rss>"""
+
+    respx.get("https://news.usni.org/category/fleet-tracker/feed").mock(
+        return_value=httpx.Response(200, text=rss_xml)
+    )
+
+    result = await fetch_usni_fleet(fetcher)
+    assert result["source"] == "usni-fleet-tracker"
+    assert "error" in result
+    assert result["ship_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Trade Routes (static — no HTTP mock needed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_trade_routes() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_trade_routes
+
+    result = await fetch_trade_routes()
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert result["total_oil_flow_mbd"] > 0
+    assert "by_type" in result
+    assert "chokepoint" in result["by_type"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_trade_routes_filter_type() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_trade_routes
+
+    result = await fetch_trade_routes(route_type="canal")
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert all(r["type"] == "canal" for r in result["routes"])
+
+
+@pytest.mark.asyncio
+async def test_fetch_trade_routes_filter_country() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_trade_routes
+
+    result = await fetch_trade_routes(country="EGY")
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert all("EGY" in r["countries"] for r in result["routes"])
+
+
+# ---------------------------------------------------------------------------
+# Cloud Regions (static — no HTTP mock needed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_cloud_regions() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_cloud_regions
+
+    result = await fetch_cloud_regions()
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert "by_provider" in result
+    assert "AWS" in result["by_provider"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_cloud_regions_filter_provider() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_cloud_regions
+
+    result = await fetch_cloud_regions(provider="GCP")
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert all(r["provider"] == "GCP" for r in result["regions"])
+
+
+# ---------------------------------------------------------------------------
+# Financial Centers (static — no HTTP mock needed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_financial_centers() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_financial_centers
+
+    result = await fetch_financial_centers()
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert "by_country" in result
+
+
+@pytest.mark.asyncio
+async def test_fetch_financial_centers_filter_rank() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_financial_centers
+
+    result = await fetch_financial_centers(min_rank=5)
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert result["count"] <= 5
+    assert all(fc["gfci_rank"] <= 5 for fc in result["centers"])
+
+
+@pytest.mark.asyncio
+async def test_fetch_financial_centers_filter_country() -> None:
+    from world_intel_mcp.sources.geospatial import fetch_financial_centers
+
+    result = await fetch_financial_centers(country="USA")
+    assert result["source"] == "static-geospatial"
+    assert result["count"] > 0
+    assert all(fc["iso3"] == "USA" for fc in result["centers"])

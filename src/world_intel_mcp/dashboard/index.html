@@ -1290,24 +1290,143 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// ════════════ KEYBOARD SHORTCUTS ════════════
+var _helpOverlay = null;
+function _buildHelpOverlay() {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:24px 32px;max-width:520px;width:90%;color:#e0e0e0;font-family:monospace;font-size:13px;';
+    // Header
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
+    var title = document.createElement('span');
+    title.style.cssText = 'font-size:16px;font-weight:bold;color:#00d4ff;';
+    title.textContent = 'Keyboard Shortcuts';
+    var closeBtn = document.createElement('span');
+    closeBtn.style.cssText = 'cursor:pointer;color:#888;font-size:18px;';
+    closeBtn.textContent = '\u2715';
+    closeBtn.addEventListener('click', function() { overlay.remove(); _helpOverlay = null; });
+    hdr.appendChild(title);
+    hdr.appendChild(closeBtn);
+    box.appendChild(hdr);
+    // Table
+    var tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;';
+    var rows = [
+        ['__section', 'Navigation'],
+        ['?', 'Toggle this help'],
+        ['/', 'Focus search'],
+        ['Esc', 'Close panels / blur search'],
+        ['d', 'Toggle drawer'],
+        ['l', 'Toggle layer panel'],
+        ['r', 'Reset globe view'],
+        ['+ / -', 'Zoom in / out'],
+        ['__section', 'Map Layers (1-9, 0)'],
+        ['1', 'Earthquakes'], ['2', 'Military flights'], ['3', 'Conflict zones'],
+        ['4', 'Wildfires'], ['5', 'Signal convergence'], ['6', 'Nuclear monitor'],
+        ['7', 'Infrastructure'], ['8', 'Population exposure'], ['9', 'Air traffic'],
+        ['0', 'News geolocation'],
+        ['__section', 'Actions'],
+        ['a', 'Toggle all layers on/off'],
+        ['f', 'Toggle fullscreen'],
+    ];
+    rows.forEach(function(r) {
+        var tr = document.createElement('tr');
+        if (r[0] === '__section') {
+            var td = document.createElement('td');
+            td.colSpan = 2;
+            td.style.cssText = 'padding:10px 0 6px;color:#888;border-bottom:1px solid #333;';
+            td.textContent = r[1];
+            tr.appendChild(td);
+        } else {
+            var kd = document.createElement('td');
+            kd.style.cssText = 'padding:4px 0;';
+            var kbd = document.createElement('kbd');
+            kbd.style.cssText = 'background:#333;padding:2px 6px;border-radius:3px;';
+            kbd.textContent = r[0];
+            kd.appendChild(kbd);
+            var vd = document.createElement('td');
+            vd.textContent = r[1];
+            tr.appendChild(kd);
+            tr.appendChild(vd);
+        }
+        tbl.appendChild(tr);
+    });
+    box.appendChild(tbl);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', function(ev) { if (ev.target === overlay) { overlay.remove(); _helpOverlay = null; } });
+    return overlay;
+}
+function _toggleHelp() {
+    if (_helpOverlay) { _helpOverlay.remove(); _helpOverlay = null; return; }
+    _helpOverlay = _buildHelpOverlay();
+    document.body.appendChild(_helpOverlay);
+}
+
+var _layerKeys = ['quakes','military','conflict','fires','convergence','nuclear','infra','exposure','airtraffic','news'];
+function _toggleLayerByIndex(idx) {
+    var key = _layerKeys[idx];
+    if (!key || !mapLayers[key]) return;
+    var row = document.querySelector('.layer-row[data-layer="' + key + '"]');
+    if (!row) return;
+    var toggle = row.querySelector('.toggle');
+    toggle.classList.toggle('on');
+    layerState[key] = toggle.classList.contains('on');
+    if (layerState[key]) { mapLayers[key].addTo(map); } else { map.removeLayer(mapLayers[key]); }
+    try { localStorage.setItem('phoenix-layers', JSON.stringify(layerState)); } catch(e) {}
+}
+
+var _allLayersOn = true;
+function _toggleAllLayers() {
+    _allLayersOn = !_allLayersOn;
+    _layerKeys.forEach(function(key) {
+        if (!mapLayers[key]) return;
+        layerState[key] = _allLayersOn;
+        if (_allLayersOn) { mapLayers[key].addTo(map); } else { map.removeLayer(mapLayers[key]); }
+        var row = document.querySelector('.layer-row[data-layer="' + key + '"]');
+        if (row) { var t = row.querySelector('.toggle'); if (t) { if (_allLayersOn) t.classList.add('on'); else t.classList.remove('on'); } }
+    });
+    try { localStorage.setItem('phoenix-layers', JSON.stringify(layerState)); } catch(e) {}
+}
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        if (_helpOverlay) { _helpOverlay.remove(); _helpOverlay = null; return; }
         closeDetail();
         if (!$('#drawer').classList.contains('closed')) {
             drawerOpen = false;
             $('#drawer').classList.add('closed');
-            $('#drawerToggle').innerHTML = '&#x25C0;';
+            $('#drawerToggle').textContent = '\u25C0';
         }
         $('#searchInput').blur();
+        return;
     }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'd' || e.key === 'D') {
+    if (e.key === '?') { _toggleHelp(); return; }
+    if (e.key === '/') { e.preventDefault(); $('#searchInput').focus(); return; }
+    if (e.key === 'd') {
         drawerOpen = !drawerOpen;
         $('#drawer').classList.toggle('closed', !drawerOpen);
-        $('#drawerToggle').innerHTML = drawerOpen ? '&#x25B6;' : '&#x25C0;';
+        $('#drawerToggle').textContent = drawerOpen ? '\u25B6' : '\u25C0';
+        return;
     }
-    if (e.key === 'r' || e.key === 'R') { map.setView([20, 0], 2.5); }
-    if (e.key === '/') { e.preventDefault(); $('#searchInput').focus(); }
+    if (e.key === 'l') {
+        var lp = $('#layerPanel');
+        if (lp) lp.classList.toggle('collapsed');
+        return;
+    }
+    if (e.key === 'r') { map.setView([20, 0], 2.5); return; }
+    if (e.key === '=' || e.key === '+') { map.zoomIn(); return; }
+    if (e.key === '-') { map.zoomOut(); return; }
+    if (e.key === 'f') {
+        if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(function(){}); }
+        else { document.exitFullscreen(); }
+        return;
+    }
+    if (e.key === 'a') { _toggleAllLayers(); return; }
+    if (e.key >= '1' && e.key <= '9') { _toggleLayerByIndex(parseInt(e.key) - 1); return; }
+    if (e.key === '0') { _toggleLayerByIndex(9); return; }
 });
 
 // ════════════ MAP MARKER MANAGEMENT ════════════
