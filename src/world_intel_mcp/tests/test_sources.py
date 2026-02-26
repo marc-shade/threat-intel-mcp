@@ -1183,3 +1183,197 @@ async def test_fetch_financial_centers_filter_country() -> None:
     assert result["source"] == "static-geospatial"
     assert result["count"] > 0
     assert all(fc["iso3"] == "USA" for fc in result["centers"])
+
+
+# ---------------------------------------------------------------------------
+# Country Dossier (Phase 16)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_country_dossier(fetcher: Fetcher) -> None:
+    """Dossier aggregates country brief, stocks, elections, sanctions, news."""
+    from world_intel_mcp.analysis.dossier import fetch_country_dossier
+
+    # Mock World Bank GDP
+    respx.get("https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.CD").mock(
+        return_value=httpx.Response(200, json=[
+            {"page": 1},
+            [{"date": "2024", "value": 28000000000000}],
+        ])
+    )
+    # Mock World Bank inflation
+    respx.get("https://api.worldbank.org/v2/country/US/indicator/FP.CPI.TOTL.ZG").mock(
+        return_value=httpx.Response(200, json=[
+            {"page": 1},
+            [{"date": "2024", "value": 3.2}],
+        ])
+    )
+    # Mock ACLED (no key = skip)
+    # Mock Yahoo Finance for country stocks
+    respx.get("https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC").mock(
+        return_value=httpx.Response(200, json={
+            "chart": {"result": [{"meta": {
+                "regularMarketPrice": 5800,
+                "chartPreviousClose": 5750,
+                "currency": "USD",
+                "exchangeName": "SNP",
+            }}]},
+        })
+    )
+    # Mock OFAC sanctions
+    respx.get("https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML").mock(
+        return_value=httpx.Response(200, text="<sdnList></sdnList>")
+    )
+    # Mock news feeds — just one category needed
+    respx.route().mock(return_value=httpx.Response(200, text="""<?xml version="1.0"?>
+    <rss version="2.0"><channel><title>Test</title>
+    <item><title>US Economy Grows</title><link>https://example.com/1</link></item>
+    <item><title>China Trade</title><link>https://example.com/2</link></item>
+    </channel></rss>"""))
+
+    result = await fetch_country_dossier(fetcher, country="US")
+
+    assert result["source"] == "country-dossier"
+    assert result["overview"]["iso2"] == "US"
+    assert result["overview"]["iso3"] == "USA"
+    assert "economy" in result
+    assert "markets" in result
+    assert "elections" in result
+    assert "sanctions" in result
+    assert "news" in result
+    assert "security" in result
+    assert len(result["sections"]) == 7
+
+
+@pytest.mark.asyncio
+async def test_fetch_country_dossier_invalid_code(fetcher: Fetcher) -> None:
+    """Dossier returns error for unknown country code."""
+    from world_intel_mcp.analysis.dossier import fetch_country_dossier
+
+    result = await fetch_country_dossier(fetcher, country="XX")
+    assert "error" in result
+    assert "Unknown" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# Traffic (Phase 16)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_traffic_flow_no_key(fetcher: Fetcher) -> None:
+    """Traffic flow returns error when TOMTOM_API_KEY is not set."""
+    from world_intel_mcp.sources.traffic import fetch_traffic_flow
+
+    with patch.dict("os.environ", {}, clear=True):
+        result = await fetch_traffic_flow(fetcher)
+
+    assert "error" in result
+    assert "TOMTOM_API_KEY" in result["error"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_traffic_flow_with_key(fetcher: Fetcher) -> None:
+    """Traffic flow fetches congestion data from TomTom."""
+    from world_intel_mcp.sources.traffic import fetch_traffic_flow
+
+    respx.route().mock(return_value=httpx.Response(200, json={
+        "flowSegmentData": {
+            "currentSpeed": 30.0,
+            "freeFlowSpeed": 60.0,
+        },
+    }))
+
+    with patch.dict("os.environ", {"TOMTOM_API_KEY": "test-key"}):
+        result = await fetch_traffic_flow(fetcher)
+
+    assert result["source"] == "tomtom"
+    assert result["count"] > 0
+    assert result["global_avg_congestion"] == 50.0  # (1 - 30/60) * 100
+    assert result["cities"][0]["congestion_pct"] == 50
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_traffic_incidents_no_key(fetcher: Fetcher) -> None:
+    """Traffic incidents returns error when no API key."""
+    from world_intel_mcp.sources.traffic import fetch_traffic_incidents
+
+    with patch.dict("os.environ", {}, clear=True):
+        result = await fetch_traffic_incidents(fetcher)
+
+    assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# Aviation Domestic (Phase 16)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_domestic_flights(fetcher: Fetcher) -> None:
+    """Domestic flights buckets OpenSky states by region."""
+    from world_intel_mcp.sources.aviation import fetch_domestic_flights
+
+    # Simulate 3 airborne aircraft at known positions
+    respx.route().mock(return_value=httpx.Response(200, json={
+        "states": [
+            # [icao24, callsign, origin, ..., on_ground=False, lon, lat, ...]
+            ["abc123", "UAL123 ", "United States", None, None, -73.9, 40.7, 10000, False, None, None, None, None, None, None, None],
+            ["def456", "BAW789 ", "United Kingdom", None, None, -0.1, 51.5, 11000, False, None, None, None, None, None, None, None],
+            ["ghi789", "CCA100 ", "China", None, None, 116.4, 39.9, 12000, False, None, None, None, None, None, None, None],
+        ],
+    }))
+
+    result = await fetch_domestic_flights(fetcher)
+
+    assert result["source"] == "opensky-domestic"
+    assert result["total_aircraft"] == 3
+    assert len(result["by_region"]) > 0
+    assert len(result["busiest_origins"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# Webcams (Phase 16)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_fetch_webcams_no_key(fetcher: Fetcher) -> None:
+    """Webcams returns error when WINDY_API_KEY is not set."""
+    from world_intel_mcp.sources.webcams import fetch_webcams
+
+    with patch.dict("os.environ", {}, clear=True):
+        result = await fetch_webcams(fetcher)
+
+    assert "error" in result
+    assert "WINDY_API_KEY" in result["error"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_webcams_with_key(fetcher: Fetcher) -> None:
+    """Webcams fetches camera data from Windy API."""
+    from world_intel_mcp.sources.webcams import fetch_webcams
+
+    respx.route().mock(return_value=httpx.Response(200, json={
+        "webcams": [
+            {
+                "webcamId": "cam-1",
+                "title": "Times Square",
+                "location": {"latitude": 40.758, "longitude": -73.985, "city": "New York", "country": "US"},
+                "images": {"current": {"preview": "https://example.com/prev.jpg", "thumbnail": "https://example.com/thumb.jpg"}},
+                "player": {"day": {"embed": "https://example.com/player"}},
+                "status": "active",
+            },
+        ],
+    }))
+
+    with patch.dict("os.environ", {"WINDY_API_KEY": "test-key"}):
+        result = await fetch_webcams(fetcher, category="traffic", limit=10)
+
+    assert result["source"] == "windy-webcams"
+    assert result["count"] == 1
+    assert result["cameras"][0]["title"] == "Times Square"
+    assert result["cameras"][0]["lat"] == 40.758

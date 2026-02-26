@@ -309,14 +309,17 @@ TOOLS: list[Tool] = [
     # --- News (3 tools) ---
     Tool(
         name="intel_news_feed",
-        description="Get aggregated intelligence news from 20+ RSS feeds across 6 categories (geopolitics, security, tech, finance, military, science).",
+        description="Get aggregated intelligence news from 119 RSS feeds across 24 categories. Covers geopolitics, security, tech, finance, military, science, think tanks, regional, energy, space, nuclear, climate, maritime, arctic, and more.",
         inputSchema={
             "type": "object",
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "Category filter",
-                    "enum": ["geopolitics", "security", "technology", "finance", "military", "science"],
+                    "description": "Category filter (24 categories available)",
+                    "enum": ["geopolitics", "security", "technology", "finance", "military", "science",
+                             "think_tanks", "middle_east", "asia_pacific", "africa", "latin_america",
+                             "multilingual", "energy", "government", "crisis", "europe", "south_asia",
+                             "health", "central_asia", "arctic", "maritime", "space", "nuclear", "climate"],
                 },
                 "limit": {"type": "integer", "description": "Max items (default 50)", "default": 50},
             },
@@ -349,7 +352,7 @@ TOOLS: list[Tool] = [
             },
         },
     ),
-    # --- Intelligence (12 tools) ---
+    # --- Intelligence (13 tools) ---
     Tool(
         name="intel_country_brief",
         description="Generate a country intelligence brief using Ollama LLM + World Bank + ACLED data. Falls back to data-only if LLM unavailable.",
@@ -357,6 +360,16 @@ TOOLS: list[Tool] = [
             "type": "object",
             "properties": {
                 "country_code": {"type": "string", "description": "ISO country code (default: US)", "default": "US"},
+            },
+        },
+    ),
+    Tool(
+        name="intel_country_dossier",
+        description="Comprehensive country intelligence dossier: economy (GDP/inflation), stock market, elections, sanctions, news mentions, hotspots, and conflict zones. Aggregates 6 sources in parallel.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "ISO-2 or ISO-3 country code (e.g. US, USA, UA, UKR)", "default": "US"},
             },
         },
     ),
@@ -901,6 +914,35 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- Traffic (2 tools) ---
+    Tool(
+        name="intel_traffic_flow",
+        description="Real-time traffic congestion for 20 major world cities via TomTom API. Congestion percentage, speeds, global average. Requires TOMTOM_API_KEY.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="intel_traffic_incidents",
+        description="Major traffic incidents across 5 strategic regions (US East/West, Europe, Middle East, East Asia) via TomTom API. Requires TOMTOM_API_KEY.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    # --- Aviation domestic (1 tool) ---
+    Tool(
+        name="intel_aviation_domestic",
+        description="Global air traffic snapshot from OpenSky Network: total airborne aircraft, regional breakdown, busiest origin countries, and sampled positions for mapping.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    # --- Webcams (1 tool) ---
+    Tool(
+        name="intel_webcams",
+        description="Public webcam locations and live previews worldwide from Windy Webcams API. Filter by category (traffic, weather, landscape). Requires WINDY_API_KEY.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "Webcam category (traffic, weather, landscape, etc.)", "default": "traffic"},
+                "limit": {"type": "integer", "description": "Max cameras to return (default 50)", "default": 50},
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
@@ -1037,6 +1079,9 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Intelligence
         case "intel_country_brief":
             return await intelligence.fetch_country_brief(fetcher, country_code=arguments.get("country_code", "US"))
+        case "intel_country_dossier":
+            from .analysis.dossier import fetch_country_dossier
+            return await fetch_country_dossier(fetcher, country=arguments.get("country", "US"))
         case "intel_risk_scores":
             return await intelligence.fetch_risk_scores(fetcher, limit=arguments.get("limit", 20))
         case "intel_instability_index":
@@ -1321,6 +1366,27 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 fetcher,
                 min_count=arguments.get("min_count", 3),
                 z_threshold=arguments.get("z_threshold", 2.0),
+            )
+
+        # Traffic
+        case "intel_traffic_flow":
+            from .sources.traffic import fetch_traffic_flow
+            return await fetch_traffic_flow(fetcher)
+        case "intel_traffic_incidents":
+            from .sources.traffic import fetch_traffic_incidents
+            return await fetch_traffic_incidents(fetcher)
+
+        # Aviation domestic
+        case "intel_aviation_domestic":
+            return await aviation.fetch_domestic_flights(fetcher)
+
+        # Webcams
+        case "intel_webcams":
+            from .sources.webcams import fetch_webcams
+            return await fetch_webcams(
+                fetcher,
+                category=arguments.get("category", "traffic"),
+                limit=arguments.get("limit", 50),
             )
 
         # System

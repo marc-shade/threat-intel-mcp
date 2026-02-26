@@ -2,7 +2,7 @@
 
 **Benchmark**: [koala73/worldmonitor](https://github.com/koala73/worldmonitor)
 **Updated**: 2026-02-26
-**Current tools**: 84 (83 intel + 1 status)
+**Current tools**: 89 (88 intel + 1 status)
 
 ---
 
@@ -19,6 +19,7 @@
 ## 1. Data Sources — Complete Inventory
 
 ### Markets & Economics (13 tools)
+
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_market_quotes` | `list-market-quotes` | :white_check_mark: |
@@ -90,14 +91,22 @@
 | `intel_gdelt_search` | `search-gdelt-documents` | :white_check_mark: |
 | `intel_ai_releases` | AI model/paper tracker | :white_check_mark: |
 
-### Transport (3 tools)
+### Transport & Traffic (6 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_prediction_markets` | `list-prediction-markets` | :white_check_mark: |
 | `intel_airport_delays` | `list-airport-delays` | :white_check_mark: |
 | `intel_shipping_index` | Yahoo Finance shipping ETFs | :white_check_mark: |
+| `intel_traffic_flow` | Real-time congestion in 20 cities (TomTom) | :white_check_mark: |
+| `intel_traffic_incidents` | Major incidents in 5 strategic regions (TomTom) | :white_check_mark: |
+| `intel_aviation_domestic` | Global air traffic snapshot (OpenSky) | :white_check_mark: |
 
-### Analysis & Intelligence (9 tools)
+### Webcams (1 tool)
+| Tool | WM Equivalent | Status |
+|------|---------------|--------|
+| `intel_webcams` | Public webcam locations worldwide (Windy) | :white_check_mark: |
+
+### Analysis & Intelligence (10 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_risk_scores` | `get-risk-scores` | :white_check_mark: |
@@ -110,10 +119,11 @@
 | `intel_alert_digest` | Cross-domain alert synthesis | :white_check_mark: |
 | `intel_weekly_trends` | Temporal trend analysis | :white_check_mark: |
 
-### Country & Geopolitical (3 tools)
+### Country & Geopolitical (4 tools)
 | Tool | WM Equivalent | Status |
 |------|---------------|--------|
 | `intel_country_brief` | `get-country-intel-brief` | :white_check_mark: |
+| `intel_country_dossier` | Comprehensive 6-source country analysis | :white_check_mark: |
 | `intel_election_calendar` | Election proximity risk | :white_check_mark: |
 | `intel_sanctions_search` | OFAC SDN search | :white_check_mark: |
 
@@ -186,7 +196,7 @@
 
 ## 3. RSS Feed Coverage
 
-Expanded to **100 feeds** across **18 categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
+Expanded to **119 feeds** across **24 categories** with 4-tier source ranking (wire/major/specialty/aggregator) and propaganda risk labels.
 
 | Category | Count | Status |
 |----------|-------|--------|
@@ -207,7 +217,13 @@ Expanded to **100 feeds** across **18 categories** with 4-tier source ranking (w
 | Crisis/Intl Orgs | 4 | :white_check_mark: |
 | Europe | 4 | :white_check_mark: |
 | South Asia | 3 | :white_check_mark: |
-| Health | 3 | :white_check_mark: |
+| Health | 4 | :white_check_mark: |
+| Central Asia | 3 | :white_check_mark: |
+| Arctic | 3 | :white_check_mark: |
+| Maritime | 3 | :white_check_mark: |
+| Space | 3 | :white_check_mark: |
+| Nuclear | 3 | :white_check_mark: |
+| Climate | 3 | :white_check_mark: |
 
 ---
 
@@ -280,16 +296,21 @@ Static datasets completed: 34 undersea cables, 48 AI datacenters, 27 spaceports,
 
 BTC technical analysis with SMA-50/200, Mayer Multiple, golden/death cross signals, and ATH distance via CoinGecko historical data. Central bank policy rates for 15 major banks (Fed, ECB, BoE, BoJ, PBoC, RBI, RBA, BoC, SNB, BCB, BoK, CBRT, SARB, Banxico, BI) — live FRED data when API key set, curated fallback otherwise. Static geospatial datasets: 19 maritime trade routes/chokepoints with oil flow and vessel transit data, 28 cloud provider regions (AWS/Azure/GCP), 20 GFCI-ranked financial centers. Trade route markers added to dashboard infrastructure map layer. BTC technicals and central bank rates added to dashboard drawer.
 
+### Phase 13: Country Dossier, Full Tool Exposure & Feed Expansion (+5 = 89 tools)
+`intel_country_dossier`, `intel_traffic_flow`, `intel_traffic_incidents`, `intel_aviation_domestic`, `intel_webcams`
+
+Comprehensive country intelligence dossier aggregating 6 sources in parallel (economy, markets, elections, sanctions, news, security). Exposed 4 previously hidden source functions: TomTom traffic flow (20 cities) and incidents (5 regions), OpenSky global air traffic snapshot, Windy public webcams. RSS feeds expanded from 100 to 119 across 24 categories (+6 new categories: central_asia, arctic, maritime, space, nuclear, climate). 49 CLI commands, 53 tests.
+
 ---
 
 ## Summary
 
 | Category | Have | Benchmark | Coverage |
 |----------|------|-----------|----------|
-| Data source tools | 84 | 42 | **200%** |
-| Analysis engines | 19 | 15 | **127%** |
+| Data source tools | 89 | 42 | **212%** |
+| Analysis engines | 20 | 15 | **133%** |
 | Static datasets | 18 | 12 | **150%** |
-| RSS feeds | 100 | 150+ | **67%** |
-| Strategic synthesis | Posture + brief + fleet + exposure + USNI | Dashboard-only | **Exceeds** |
+| RSS feeds | 119 | 150+ | **79%** |
+| Strategic synthesis | Posture + brief + fleet + dossier + exposure + USNI | Dashboard-only | **Exceeds** |
 
-**Bottom line**: 84 tools across 30+ domains, exactly 2x WorldMonitor benchmark in tool count, 27% more analysis engines, and 50% more static datasets. 100 RSS feeds across 18 categories. All phases 1-12 complete. Live Starlette dashboard with 39 SSE streams, 14 map layers (with trade route markers), and data freshness monitoring.
+**Bottom line**: 89 tools across 30+ domains, over 2x WorldMonitor benchmark in tool count, 33% more analysis engines, and 50% more static datasets. 119 RSS feeds across 24 categories. All phases 1-13 complete. Live Starlette dashboard with 39 SSE streams, 14 map layers (with trade route markers), and data freshness monitoring.

@@ -528,12 +528,13 @@ def climate_cmd(ctx: click.Context) -> None:
 @click.option("--category", "-c", default=None,
               type=click.Choice(["geopolitics", "security", "technology", "finance", "military", "science",
                                  "think_tanks", "middle_east", "asia_pacific", "africa", "latin_america",
-                                 "multilingual", "energy", "government", "crisis", "europe", "south_asia", "health"]),
+                                 "multilingual", "energy", "government", "crisis", "europe", "south_asia",
+                                 "health", "central_asia", "arctic", "maritime", "space", "nuclear", "climate"]),
               help="Category filter")
 @click.option("--limit", "-n", default=30, help="Max items")
 @click.pass_context
 def news_cmd(ctx: click.Context, category: str | None, limit: int) -> None:
-    """Intelligence news from 100 RSS feeds across 18 categories."""
+    """Intelligence news from 119 RSS feeds across 24 categories."""
     f = _get_fetcher()
     data = _run(news.fetch_news_feed(f, category=category, limit=limit))
 
@@ -793,6 +794,70 @@ def brief(ctx: click.Context, country_code: str) -> None:
     if d.get("gdp") or d.get("recent_events"):
         console.print(f"\n[dim]GDP data points: {len(d.get('gdp', []))} | "
                       f"Recent conflict events: {d.get('recent_events', 0)}[/dim]")
+
+
+@main.command()
+@click.option("--country", "-c", default="US", help="ISO-2 or ISO-3 country code")
+@click.pass_context
+def dossier(ctx: click.Context, country: str) -> None:
+    """Comprehensive country intelligence dossier."""
+    from .analysis.dossier import fetch_country_dossier
+    f = _get_fetcher()
+    data = _run(fetch_country_dossier(f, country=country))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    overview = data.get("overview", {})
+    console.print(f"[bold]Country Dossier: {overview.get('country', country)}[/bold] "
+                  f"({overview.get('iso2')}/{overview.get('iso3')})\n")
+
+    # Economy
+    econ = data.get("economy", {})
+    if "_error" not in econ:
+        gdp = econ.get("gdp", [])
+        if gdp:
+            latest = gdp[0]
+            console.print(f"[cyan]Economy:[/cyan] GDP {latest.get('year')}: ${latest.get('value', 0)/1e9:,.1f}B")
+        if econ.get("conflict_events_30d"):
+            console.print(f"  Conflict events (30d): {econ['conflict_events_30d']}")
+
+    # Markets
+    mkt = data.get("markets", {})
+    if "ticker" in mkt:
+        q = mkt.get("quote", {})
+        console.print(f"[green]Markets:[/green] {mkt['ticker']} = {q.get('price', 'N/A')} ({q.get('change_pct', 'N/A')}%)")
+
+    # Elections
+    elec = data.get("elections", {})
+    upcoming = elec.get("upcoming", [])
+    if upcoming:
+        next_e = upcoming[0]
+        console.print(f"[yellow]Elections:[/yellow] {next_e.get('election_type')} on {next_e.get('date')} "
+                      f"(risk: {next_e.get('risk_score', 0):.0f})")
+
+    # Sanctions
+    sanc = data.get("sanctions", {})
+    if sanc.get("match_count", 0) > 0:
+        console.print(f"[red]Sanctions:[/red] {sanc['match_count']} OFAC matches")
+
+    # News
+    news = data.get("news", {})
+    console.print(f"[blue]News:[/blue] {news.get('mention_count', 0)} recent mentions")
+    for art in news.get("mentions", [])[:3]:
+        console.print(f"  - {art.get('title', 'N/A')[:80]}")
+
+    # Security
+    sec = data.get("security", {})
+    if sec.get("hotspot_count", 0):
+        console.print(f"[red]Hotspots:[/red] {sec['hotspot_count']} associated")
+    if sec.get("conflict_count", 0):
+        console.print(f"[red]Conflicts:[/red] {sec['conflict_count']} active")
+
+    br = overview.get("baseline_risk")
+    if br is not None:
+        console.print(f"\n[dim]Baseline risk: {br}/100[/dim]")
 
 
 @main.command()
@@ -1294,6 +1359,129 @@ def exchanges_cmd(ctx: click.Context, tier: str | None, country: str | None) -> 
 
     for e in data.get("exchanges", [])[:30]:
         table.add_row(e.get("name", ""), e.get("country", ""), e.get("tier", ""), f"{e.get('market_cap_usd_t', 0):.2f}")
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# Traffic, Aviation, Webcams
+# ---------------------------------------------------------------------------
+
+@main.command()
+@click.pass_context
+def traffic(ctx: click.Context) -> None:
+    """Real-time traffic congestion for 20 major cities (TomTom)."""
+    from .sources.traffic import fetch_traffic_flow
+    f = _get_fetcher()
+    data = _run(fetch_traffic_flow(f))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    console.print(f"[bold]Global Traffic[/bold] — {data.get('count', 0)} cities, "
+                  f"avg congestion {data.get('global_avg_congestion', 0):.0f}%\n")
+
+    table = Table(box=box.SIMPLE_HEAVY)
+    table.add_column("City", style="bold")
+    table.add_column("Country")
+    table.add_column("Congestion %", justify="right")
+    table.add_column("Speed (km/h)", justify="right")
+
+    for c in data.get("cities", [])[:20]:
+        cong = c.get("congestion_pct", 0)
+        style = "red" if cong > 60 else "yellow" if cong > 30 else "green"
+        table.add_row(c.get("name", ""), c.get("country", ""),
+                      f"[{style}]{cong}%[/{style}]",
+                      str(c.get("current_speed_kmh", "")))
+    console.print(table)
+
+
+@main.command()
+@click.pass_context
+def incidents(ctx: click.Context) -> None:
+    """Major traffic incidents across strategic regions (TomTom)."""
+    from .sources.traffic import fetch_traffic_incidents
+    f = _get_fetcher()
+    data = _run(fetch_traffic_incidents(f))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    console.print(f"[bold]Traffic Incidents[/bold] — {data.get('total_count', 0)} across "
+                  f"{data.get('regions_checked', 0)} regions\n")
+
+    table = Table(box=box.SIMPLE_HEAVY)
+    table.add_column("Region")
+    table.add_column("Description", max_width=40)
+    table.add_column("Delay (min)", justify="right")
+    table.add_column("Road")
+
+    for inc in data.get("incidents", [])[:20]:
+        delay_min = round(inc.get("delay_seconds", 0) / 60)
+        table.add_row(
+            inc.get("region", ""),
+            inc.get("description", "")[:40],
+            str(delay_min) if delay_min else "-",
+            inc.get("from_road", "")[:30],
+        )
+    console.print(table)
+
+
+@main.command(name="air-traffic")
+@click.pass_context
+def air_traffic_cmd(ctx: click.Context) -> None:
+    """Global air traffic snapshot (OpenSky)."""
+    f = _get_fetcher()
+    data = _run(aviation.fetch_domestic_flights(f))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    console.print(f"[bold]Air Traffic[/bold] — {data.get('total_aircraft', 0)} airborne\n")
+
+    table = Table(box=box.SIMPLE_HEAVY, title="By Region")
+    table.add_column("Region", style="bold")
+    table.add_column("Count", justify="right")
+    table.add_column("Commercial", justify="right")
+    table.add_column("General", justify="right")
+
+    for region, stats in sorted(data.get("by_region", {}).items(), key=lambda x: -x[1]["count"]):
+        table.add_row(region, str(stats["count"]), str(stats["commercial"]), str(stats["general"]))
+    console.print(table)
+
+    if data.get("busiest_origins"):
+        console.print("\n[bold]Busiest Origins:[/bold]")
+        for o in data["busiest_origins"][:10]:
+            console.print(f"  {o['country']}: {o['count']}")
+
+
+@main.command()
+@click.option("--category", "-c", default="traffic", help="Webcam category")
+@click.option("--limit", "-n", default=20, help="Max cameras")
+@click.pass_context
+def webcams_cmd(ctx: click.Context, category: str, limit: int) -> None:
+    """Public webcam locations worldwide (Windy)."""
+    from .sources.webcams import fetch_webcams
+    f = _get_fetcher()
+    data = _run(fetch_webcams(f, category=category, limit=limit))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    console.print(f"[bold]Webcams[/bold] — {data.get('count', 0)} cameras ({category})\n")
+
+    table = Table(box=box.SIMPLE_HEAVY)
+    table.add_column("Title", style="bold", max_width=30)
+    table.add_column("City")
+    table.add_column("Country")
+    table.add_column("Status")
+
+    for cam in data.get("cameras", []):
+        table.add_row(cam.get("title", "")[:30], cam.get("city", ""),
+                      cam.get("country", ""), cam.get("status", ""))
     console.print(table)
 
 

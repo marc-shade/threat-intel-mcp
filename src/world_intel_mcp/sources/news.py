@@ -161,6 +161,37 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("STAT News", "https://www.statnews.com/feed/"),
         ("WHO News", "https://www.who.int/rss-feeds/news-english.xml"),
         ("Medical Xpress", "https://medicalxpress.com/rss-feed/"),
+        ("The Lancet", "https://www.thelancet.com/rssfeed/lancet_current.xml"),
+    ],
+    "central_asia": [
+        ("Eurasianet", "https://eurasianet.org/feed"),
+        ("The Astana Times", "https://astanatimes.com/feed/"),
+        ("Radio Free Europe", "https://www.rferl.org/api/zyrttemnuq"),
+    ],
+    "arctic": [
+        ("The Barents Observer", "https://thebarentsobserver.com/en/rss.xml"),
+        ("Arctic Today", "https://www.arctictoday.com/feed/"),
+        ("High North News", "https://www.highnorthnews.com/en/rss.xml"),
+    ],
+    "maritime": [
+        ("Maritime Executive", "https://maritime-executive.com/feed"),
+        ("gCaptain", "https://gcaptain.com/feed/"),
+        ("Lloyd's List", "https://lloydslist.maritimeintelligence.informa.com/rss/all"),
+    ],
+    "space": [
+        ("SpaceRef", "https://spaceref.com/feed/"),
+        ("NASASpaceFlight", "https://www.nasaspaceflight.com/feed/"),
+        ("Space.com", "https://www.space.com/feeds/all"),
+    ],
+    "nuclear": [
+        ("World Nuclear News", "https://world-nuclear-news.org/rss"),
+        ("Arms Control Assn", "https://www.armscontrol.org/rss/all"),
+        ("Nuclear Threat Initiative", "https://www.nti.org/feed/"),
+    ],
+    "climate": [
+        ("Climate Home News", "https://www.climatechangenews.com/feed/"),
+        ("InsideClimate News", "https://insideclimatenews.org/feed/"),
+        ("E&E News", "https://www.eenews.net/feed/"),
     ],
 }
 
@@ -243,6 +274,26 @@ SOURCE_TIERS: dict[str, str] = {
     "HRW": "intl_org",
     "The Register": "specialty",
     "White House": "government",
+    # Phase 16 additions
+    "The Lancet": "major",
+    "Eurasianet": "specialty",
+    "The Astana Times": "specialty",
+    "Radio Free Europe": "government",
+    "The Barents Observer": "specialty",
+    "Arctic Today": "specialty",
+    "High North News": "specialty",
+    "Maritime Executive": "specialty",
+    "gCaptain": "specialty",
+    "Lloyd's List": "specialty",
+    "SpaceRef": "specialty",
+    "NASASpaceFlight": "specialty",
+    "Space.com": "major",
+    "World Nuclear News": "specialty",
+    "Arms Control Assn": "think_tank",
+    "Nuclear Threat Initiative": "think_tank",
+    "Climate Home News": "specialty",
+    "InsideClimate News": "specialty",
+    "E&E News": "specialty",
 }
 
 _STOPWORDS: set[str] = {
