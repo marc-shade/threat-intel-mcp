@@ -25,6 +25,8 @@ Phase 13: USNI fleet tracker, RSS expansion, report removal.
 Phase 14: BTC technicals, central bank rates, trade routes, cloud regions, financial centers (+5 = 87 tools).
 Phase 15: Business intelligence — forex (3), bonds/yields (2), earnings (2), SEC filings (3),
           company enrichment (1), macro composite (1) (+12 = 99 tools).
+Phase 16: Vector intelligence — semantic search, similar events, timeline (+3 = 102 tools).
+          Qdrant vector store auto-populates from all fetches. Enterprise-grade semantic retrieval.
 """
 
 import asyncio
@@ -84,7 +86,17 @@ logger = logging.getLogger("world-intel-mcp")
 server = Server("world-intel-mcp")
 cache = Cache()
 breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=300)
-fetcher = Fetcher(cache=cache, breaker=breaker)
+
+# Vector store — optional, degrades gracefully if Qdrant unavailable.
+_vector_store = None
+try:
+    from .vector_store import VectorStore
+
+    _vector_store = VectorStore(enabled=True)
+except Exception:
+    logger.info("Vector store unavailable (qdrant_client or Qdrant not installed)")
+
+fetcher = Fetcher(cache=cache, breaker=breaker, vector_store=_vector_store)
 
 # ---------------------------------------------------------------------------
 # Tool definitions
@@ -1519,10 +1531,96 @@ TOOLS: list[Tool] = [
         description="Get weighted macro market composite score (0-100) synthesizing Fear & Greed, VIX, sector breadth, DXY, BTC technicals, and 10Y yield into an actionable verdict (RISK_ON / CONSTRUCTIVE / NEUTRAL / CAUTIOUS / STRONG_CAUTION).",
         inputSchema={"type": "object", "properties": {}},
     ),
+    # --- Vector Search (3 tools) ---
+    Tool(
+        name="intel_semantic_search",
+        description="Semantic search across all stored intelligence data using natural language. Searches historical data accumulated from all 101+ tools. Filters: domain (e.g., 'markets', 'conflict'), category (e.g., 'Financial Markets', 'Cyber Threats'), hours (last N hours). Returns ranked results by relevance.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural language search query (e.g., 'military activity near Taiwan', 'oil price disruptions')",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 20)",
+                    "default": 20,
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Filter by source domain (e.g., 'markets', 'conflict', 'military')",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Filter by category (e.g., 'Financial Markets', 'Conflict & Security', 'Cyber Threats')",
+                },
+                "hours": {
+                    "type": "number",
+                    "description": "Only results from last N hours",
+                },
+            },
+            "required": ["query"],
+        },
+    ),
+    Tool(
+        name="intel_similar_events",
+        description="Find historically similar intelligence events or data. Given a text description, finds the most similar stored entries across all domains. Useful for pattern matching and precedent analysis.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Reference text to find similar events for",
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Source domain of the reference text",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 10)",
+                    "default": 10,
+                },
+                "hours": {
+                    "type": "number",
+                    "description": "Only results from last N hours",
+                },
+            },
+            "required": ["text"],
+        },
+    ),
+    Tool(
+        name="intel_timeline",
+        description="Get chronological timeline of stored intelligence data. Returns recent entries sorted by time. Filter by domain or category to focus on specific intelligence areas.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "description": "Filter by source domain",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Filter by category",
+                },
+                "hours": {
+                    "type": "number",
+                    "description": "Time window in hours (default 24)",
+                    "default": 24,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max entries (default 50)",
+                    "default": 50,
+                },
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
-        description="Get data source health, circuit breaker status, cache freshness, and statistics.",
+        description="Get data source health, circuit breaker status, cache freshness, vector store stats, and system statistics.",
         inputSchema={"type": "object", "properties": {}},
     ),
 ]
@@ -2106,12 +2204,46 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 
             return await fetch_macro_composite(fetcher)
 
+        # Vector Search
+        case "intel_semantic_search":
+            if _vector_store is None:
+                return {"error": "Vector store not available (Qdrant not running?)"}
+            return await _vector_store.semantic_search(
+                query=arguments["query"],
+                limit=arguments.get("limit", 20),
+                domain=arguments.get("domain"),
+                category=arguments.get("category"),
+                hours=arguments.get("hours"),
+            )
+        case "intel_similar_events":
+            if _vector_store is None:
+                return {"error": "Vector store not available (Qdrant not running?)"}
+            return await _vector_store.find_similar(
+                domain=arguments.get("domain", "unknown"),
+                text=arguments["text"],
+                limit=arguments.get("limit", 10),
+                hours=arguments.get("hours"),
+            )
+        case "intel_timeline":
+            if _vector_store is None:
+                return {"error": "Vector store not available (Qdrant not running?)"}
+            return await _vector_store.timeline(
+                domain=arguments.get("domain"),
+                category=arguments.get("category"),
+                hours=arguments.get("hours", 24.0),
+                limit=arguments.get("limit", 50),
+            )
+
         # System
         case "intel_status":
+            vs_stats = {}
+            if _vector_store:
+                vs_stats = await _vector_store.collection_stats()
             return {
                 "circuit_breakers": breaker.status(),
                 "cache": cache.stats(),
                 "cache_freshness": cache.freshness(),
+                "vector_store": vs_stats,
                 "sources": {
                     "markets": [
                         "yahoo-finance",
@@ -2206,10 +2338,17 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
 
 async def _run() -> None:
     logger.info("World Intelligence MCP Server starting (%d tools)", len(TOOLS))
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream, write_stream, server.create_initialization_options()
-        )
+    if _vector_store:
+        await _vector_store.start()
+        logger.info("Vector store worker started")
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream, write_stream, server.create_initialization_options()
+            )
+    finally:
+        if _vector_store:
+            await _vector_store.stop()
 
 
 def run() -> None:

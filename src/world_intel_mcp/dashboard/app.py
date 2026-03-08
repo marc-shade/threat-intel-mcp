@@ -81,14 +81,22 @@ logger = logging.getLogger(__name__)
 _fetcher: Fetcher | None = None
 _cache: Cache | None = None
 _breaker: CircuitBreaker | None = None
+_vector_store = None
 
 
 def _ensure_fetcher() -> Fetcher:
-    global _fetcher, _cache, _breaker
+    global _fetcher, _cache, _breaker, _vector_store
     if _fetcher is None:
         _cache = Cache()
         _breaker = CircuitBreaker()
-        _fetcher = Fetcher(cache=_cache, breaker=_breaker)
+        # Vector store — optional, dashboard populates it alongside the MCP server
+        try:
+            from world_intel_mcp.vector_store import VectorStore
+
+            _vector_store = VectorStore(enabled=True)
+        except Exception:
+            logger.info("Vector store unavailable in dashboard mode")
+        _fetcher = Fetcher(cache=_cache, breaker=_breaker, vector_store=_vector_store)
     return _fetcher
 
 
@@ -379,6 +387,15 @@ async def api_report_pdf(request):
 # App
 # ---------------------------------------------------------------------------
 
+
+async def on_startup():
+    """Start vector store worker if available."""
+    _ensure_fetcher()
+    if _vector_store:
+        await _vector_store.start()
+        logger.info("Dashboard vector store worker started")
+
+
 app = Starlette(
     routes=[
         Route("/", index),
@@ -388,6 +405,7 @@ app = Starlette(
         Route("/api/health", api_health),
         Route("/api/report/pdf", api_report_pdf),
     ],
+    on_startup=[on_startup],
 )
 
 

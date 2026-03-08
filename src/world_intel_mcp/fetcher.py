@@ -53,12 +53,14 @@ class Fetcher:
         default_timeout: float = 15.0,
         max_retries: int = 2,
         client: httpx.AsyncClient | None = None,
+        vector_store: Any = None,
     ):
         self.cache = cache
         self.breaker = breaker
         self.default_timeout = default_timeout
         self.max_retries = max_retries
         self._client: httpx.AsyncClient | None = client
+        self.vector_store = vector_store  # VectorStore instance (optional)
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -134,6 +136,8 @@ class Fetcher:
                 data = resp.json()
                 self.breaker.record_success(source)
                 self.cache.set(effective_key, data, cache_ttl)
+                if self.vector_store:
+                    await self.vector_store.store(source, data)
                 return data
             except (httpx.HTTPStatusError, httpx.RequestError, Exception) as exc:
                 last_error = exc
