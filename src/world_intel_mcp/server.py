@@ -30,6 +30,8 @@ Phase 16: Vector intelligence — semantic search, similar events, timeline, vec
           Collector daemon for 24/7 data accumulation. Enterprise-grade semantic retrieval.
 Phase 17: Cross-domain analytics — cross-domain correlation, domain summary, trend detection
           (+3 = 109 tools). Historical analysis and early warning from accumulated vector data.
+Phase 18: PDF/HTML intelligence reports (+1 = 110 tools). WeasyPrint-based multi-section
+          report generation covering 18 intelligence domains in parallel.
 """
 
 import asyncio
@@ -98,7 +100,9 @@ try:
     if vector_dependencies_available():
         _vector_store = VectorStore(enabled=True)
     else:
-        logger.info("Vector store unavailable (qdrant_client / fastembed not installed)")
+        logger.info(
+            "Vector store unavailable (qdrant_client / fastembed not installed)"
+        )
 except Exception as exc:
     logger.info("Vector store unavailable: %s", exc)
 
@@ -1702,6 +1706,31 @@ TOOLS: list[Tool] = [
             },
         },
     ),
+    # --- Reports (1 tool) ---
+    Tool(
+        name="intel_generate_report",
+        description="Generate a PDF or HTML intelligence report covering markets, conflicts, earthquakes, cyber threats, health, infrastructure, and more. Returns the file path. Optional: sections (list of section names), title (string), format ('pdf' or 'html').",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Report title (default: 'World Intelligence Report')",
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Sections to include: world_brief, strategic_posture, alerts, markets, economic, earthquakes, wildfires, conflicts, military, infrastructure, maritime, cyber, health, news, climate, nuclear, shipping, service_status. Default: all.",
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["pdf", "html"],
+                    "description": "Output format (default: pdf). Use html if weasyprint is not installed.",
+                    "default": "pdf",
+                },
+            },
+        },
+    ),
     # --- System (1 tool) ---
     Tool(
         name="intel_status",
@@ -2360,6 +2389,18 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 category=arguments.get("category"),
                 recent_hours=arguments.get("recent_hours", 6.0),
                 baseline_hours=arguments.get("baseline_hours", 48.0),
+            )
+
+        # System
+        # Reports
+        case "intel_generate_report":
+            from .reports import generate_report
+
+            return await generate_report(
+                fetcher,
+                title=arguments.get("title"),
+                sections=arguments.get("sections"),
+                fmt=arguments.get("format", "pdf"),
             )
 
         # System

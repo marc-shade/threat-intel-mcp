@@ -55,8 +55,9 @@ Built for AI agents that need world awareness: market conditions, geopolitical r
 | **Monitoring** | 2 | Webcams, server health/status |
 | **Vector Search** | 5 | Qdrant semantic search, similarity, timeline, stats |
 | **Cross-Domain Analytics** | 3 | Correlation, domain summary, trend detection |
+| **Reports** | 1 | PDF/HTML multi-domain intelligence reports |
 
-**Total: 109 tools** across 30+ intelligence domains.
+**Total: 110 tools** across 30+ intelligence domains.
 
 ---
 
@@ -100,6 +101,16 @@ Add to `~/.claude.json`:
 ```bash
 intel-dashboard              # http://localhost:8501
 intel-dashboard --port 9000  # custom port
+```
+
+### PDF/HTML Reports
+
+```bash
+pip install -e ".[pdf]"      # requires: brew install pango (macOS)
+intel report                 # full PDF report → ~/.cache/world-intel-mcp/
+intel report --format html   # HTML (no native deps needed)
+intel report -o brief.pdf    # custom output path
+intel report -s markets,cyber,earthquakes  # select sections
 ```
 
 Map-first ops center: Leaflet map with toggle-able layers (quakes, military, conflict, fires, convergence, nuclear, infrastructure), 35+ live SSE feeds, HUD bar, glassmorphic panels, per-source circuit breaker health.
@@ -404,6 +415,12 @@ collector.py  (daemon)    ─┘
 | `intel_cross_correlate` | Find correlated signals across all domains for a given topic |
 | `intel_domain_summary` | Per-category summary of stored intelligence (counts, sources, recency) |
 | `intel_trend_detection` | Detect activity surges/drops by comparing recent vs baseline periods |
+
+### Reports (1)
+
+| Tool | Description |
+|------|-------------|
+| `intel_generate_report` | Generate a PDF or HTML intelligence report covering 18 domains in parallel |
 
 ---
 

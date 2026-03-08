@@ -18,14 +18,37 @@ from rich import box
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, shipping, social, nuclear, space_weather, ai_watch, elections, health, sanctions
+from .sources import (
+    markets,
+    economic,
+    seismology,
+    wildfire,
+    conflict,
+    military,
+    infrastructure,
+    maritime,
+    climate,
+    news,
+    intelligence,
+    prediction,
+    displacement,
+    aviation,
+    cyber,
+    shipping,
+    social,
+    nuclear,
+    space_weather,
+    ai_watch,
+    elections,
+    health,
+    sanctions,
+)
 from .sources.central_banks import fetch_central_bank_rates
 from .sources.usni_fleet import fetch_usni_fleet
 from .sources.hacker_news import fetch_hacker_news
 from .sources.github_trending import fetch_trending_repos
 from .sources.arxiv_papers import fetch_arxiv_papers
 from .sources.usa_spending import fetch_usa_spending
-from .sources.environmental import fetch_environmental_events, fetch_disaster_alerts
 from .sources import geospatial
 
 console = Console()
@@ -57,6 +80,7 @@ def _print_json(data: dict) -> None:
 # Root group
 # ---------------------------------------------------------------------------
 
+
 @click.group()
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
@@ -69,6 +93,7 @@ def main(ctx: click.Context, json_output: bool) -> None:
 # ---------------------------------------------------------------------------
 # Markets
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="markets")
 @click.option("--symbols", "-s", multiple=True, help="Ticker symbols")
@@ -178,6 +203,7 @@ def macro(ctx: click.Context) -> None:
 # Economic
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.pass_context
 def energy(ctx: click.Context) -> None:
@@ -196,7 +222,11 @@ def energy(ctx: click.Context) -> None:
     table.add_column("Price", justify="right")
     table.add_column("Date")
 
-    for name, info in [("Brent Crude", oil.get("brent")), ("WTI Crude", oil.get("wti")), ("Natural Gas", gas)]:
+    for name, info in [
+        ("Brent Crude", oil.get("brent")),
+        ("WTI Crude", oil.get("wti")),
+        ("Natural Gas", gas),
+    ]:
         if info and isinstance(info, dict):
             table.add_row(name, f"${info.get('price', '?')}", str(info.get("date", "")))
     console.print(table)
@@ -230,6 +260,7 @@ def fred(ctx: click.Context, series_id: str, limit: int) -> None:
 # Natural
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.option("--min-mag", "-m", default=4.5, help="Minimum magnitude")
 @click.option("--hours", "-h", default=24, help="Lookback hours")
@@ -244,7 +275,9 @@ def earthquakes(ctx: click.Context, min_mag: float, hours: int) -> None:
         return
 
     quakes = data.get("earthquakes", [])
-    console.print(f"[bold]{data.get('count', 0)} earthquakes[/bold] (M{min_mag}+ in last {hours}h)\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} earthquakes[/bold] (M{min_mag}+ in last {hours}h)\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Mag", justify="right", style="bold")
@@ -279,7 +312,9 @@ def fires(ctx: click.Context, region: str | None) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('total_fires', 0)} high-confidence fires detected[/bold]\n")
+    console.print(
+        f"[bold]{data.get('total_fires', 0)} high-confidence fires detected[/bold]\n"
+    )
 
     for reg_name, reg_data in data.get("fires_by_region", {}).items():
         count = reg_data.get("count", 0)
@@ -297,6 +332,7 @@ def fires(ctx: click.Context, region: str | None) -> None:
 # Conflict
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.option("--country", "-c", default=None, help="Country name")
 @click.option("--days", "-d", default=7, help="Lookback days")
@@ -311,7 +347,9 @@ def conflicts(ctx: click.Context, country: str | None, days: int) -> None:
         return
 
     events = data.get("events", [])
-    console.print(f"[bold]{data.get('count', 0)} conflict events[/bold] (last {days}d)\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} conflict events[/bold] (last {days}d)\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Date", style="bold")
@@ -338,8 +376,11 @@ def conflicts(ctx: click.Context, country: str | None, days: int) -> None:
 # Military
 # ---------------------------------------------------------------------------
 
+
 @main.command()
-@click.option("--bbox", "-b", default=None, help="Bounding box: lamin,lomin,lamax,lomax")
+@click.option(
+    "--bbox", "-b", default=None, help="Bounding box: lamin,lomin,lamax,lomax"
+)
 @click.pass_context
 def flights(ctx: click.Context, bbox: str | None) -> None:
     """Military aircraft tracking (OpenSky)."""
@@ -382,7 +423,9 @@ def posture(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('total_military_aircraft', 0)} total military aircraft[/bold]\n")
+    console.print(
+        f"[bold]{data.get('total_military_aircraft', 0)} total military aircraft[/bold]\n"
+    )
     theaters = data.get("theaters", {})
 
     table = Table(title="Theater Posture", box=box.SIMPLE_HEAVY)
@@ -408,6 +451,7 @@ def posture(ctx: click.Context) -> None:
 # Infrastructure
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.pass_context
 def outages(ctx: click.Context) -> None:
@@ -419,13 +463,17 @@ def outages(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('ongoing_count', 0)} ongoing outages[/bold], "
-                  f"{data.get('total_7d', 0)} in last 7 days\n")
+    console.print(
+        f"[bold]{data.get('ongoing_count', 0)} ongoing outages[/bold], "
+        f"{data.get('total_7d', 0)} in last 7 days\n"
+    )
 
     for o in data.get("outages", [])[:15]:
         ongoing = "[red]ONGOING[/red]" if o.get("is_ongoing") else ""
         countries = ", ".join(o.get("countries", [])[:5]) if o.get("countries") else ""
-        console.print(f"  {o.get('start', '')[:16]}  {countries}  {o.get('description', '')[:80]}  {ongoing}")
+        console.print(
+            f"  {o.get('start', '')[:16]}  {countries}  {o.get('description', '')[:80]}  {ongoing}"
+        )
 
 
 @main.command()
@@ -439,8 +487,12 @@ def cables(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    status_labels = {0: "[green]Clear[/green]", 1: "[yellow]Advisory[/yellow]",
-                     2: "[red]At Risk[/red]", 3: "[red bold]Disrupted[/red bold]"}
+    status_labels = {
+        0: "[green]Clear[/green]",
+        1: "[yellow]Advisory[/yellow]",
+        2: "[red]At Risk[/red]",
+        3: "[red bold]Disrupted[/red bold]",
+    }
 
     table = Table(title="Undersea Cable Health", box=box.SIMPLE_HEAVY)
     table.add_column("Corridor", style="bold")
@@ -463,6 +515,7 @@ def cables(ctx: click.Context) -> None:
 # Maritime
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.option("--navarea", "-n", default=None, help="NAVAREA number (e.g., IV)")
 @click.pass_context
@@ -479,16 +532,21 @@ def warnings(ctx: click.Context, navarea: str | None) -> None:
 
     by_area = data.get("by_navarea", {})
     if by_area:
-        console.print("  By NAVAREA: " + ", ".join(f"{k}:{v}" for k, v in sorted(by_area.items())))
+        console.print(
+            "  By NAVAREA: " + ", ".join(f"{k}:{v}" for k, v in sorted(by_area.items()))
+        )
         console.print()
 
     for w in data.get("warnings", [])[:20]:
-        console.print(f"  [{w.get('navarea', '?')}] {w.get('id', '')}  {w.get('text', '')[:100]}")
+        console.print(
+            f"  [{w.get('navarea', '?')}] {w.get('id', '')}  {w.get('text', '')[:100]}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Climate
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="climate")
 @click.pass_context
@@ -515,7 +573,9 @@ def climate_cmd(ctx: click.Context) -> None:
         prec_a = z.get("precip_anomaly_pct", 0)
         t_style = "red" if temp_a > 3 else "blue" if temp_a < -3 else ""
         flag = "[red bold]SIG[/red bold]" if key in sig else ""
-        t_str = f"[{t_style}]{temp_a:+.1f}C[/{t_style}]" if t_style else f"{temp_a:+.1f}C"
+        t_str = (
+            f"[{t_style}]{temp_a:+.1f}C[/{t_style}]" if t_style else f"{temp_a:+.1f}C"
+        )
         table.add_row(z.get("name", key), t_str, f"{prec_a:+.0f}%", flag)
     console.print(table)
 
@@ -524,13 +584,42 @@ def climate_cmd(ctx: click.Context) -> None:
 # News
 # ---------------------------------------------------------------------------
 
+
 @main.command(name="news")
-@click.option("--category", "-c", default=None,
-              type=click.Choice(["geopolitics", "security", "technology", "finance", "military", "science",
-                                 "think_tanks", "middle_east", "asia_pacific", "africa", "latin_america",
-                                 "multilingual", "energy", "government", "crisis", "europe", "south_asia",
-                                 "health", "central_asia", "arctic", "maritime", "space", "nuclear", "climate"]),
-              help="Category filter")
+@click.option(
+    "--category",
+    "-c",
+    default=None,
+    type=click.Choice(
+        [
+            "geopolitics",
+            "security",
+            "technology",
+            "finance",
+            "military",
+            "science",
+            "think_tanks",
+            "middle_east",
+            "asia_pacific",
+            "africa",
+            "latin_america",
+            "multilingual",
+            "energy",
+            "government",
+            "crisis",
+            "europe",
+            "south_asia",
+            "health",
+            "central_asia",
+            "arctic",
+            "maritime",
+            "space",
+            "nuclear",
+            "climate",
+        ]
+    ),
+    help="Category filter",
+)
 @click.option("--limit", "-n", default=30, help="Max items")
 @click.pass_context
 def news_cmd(ctx: click.Context, category: str | None, limit: int) -> None:
@@ -547,7 +636,9 @@ def news_cmd(ctx: click.Context, category: str | None, limit: int) -> None:
         console.print("[yellow]No news items available[/yellow]")
         return
 
-    console.print(f"[bold]{data.get('count', 0)} items[/bold] from {', '.join(data.get('categories_fetched', []))}\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} items[/bold] from {', '.join(data.get('categories_fetched', []))}\n"
+    )
 
     for item in items:
         cat = item.get("category", "")
@@ -571,7 +662,9 @@ def trending(ctx: click.Context, min_count: int) -> None:
         return
 
     keywords = data.get("keywords", [])
-    console.print(f"[bold]Trending keywords[/bold] (from {data.get('total_items_analyzed', 0)} items)\n")
+    console.print(
+        f"[bold]Trending keywords[/bold] (from {data.get('total_items_analyzed', 0)} items)\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("#", justify="right")
@@ -585,7 +678,9 @@ def trending(ctx: click.Context, min_count: int) -> None:
 
 @main.command()
 @click.argument("query", default="conflict")
-@click.option("--mode", "-m", default="artlist", type=click.Choice(["artlist", "timelinevol"]))
+@click.option(
+    "--mode", "-m", default="artlist", type=click.Choice(["artlist", "timelinevol"])
+)
 @click.option("--limit", "-n", default=20, help="Max records")
 @click.pass_context
 def gdelt(ctx: click.Context, query: str, mode: str, limit: int) -> None:
@@ -612,6 +707,7 @@ def gdelt(ctx: click.Context, query: str, mode: str, limit: int) -> None:
 # ---------------------------------------------------------------------------
 # Prediction
 # ---------------------------------------------------------------------------
+
 
 @main.command()
 @click.option("--limit", "-n", default=20, help="Number of markets")
@@ -640,7 +736,9 @@ def predictions(ctx: click.Context, limit: int) -> None:
         yes_pct = (m.get("yes_probability", 0) or 0) * 100
         sentiment = m.get("sentiment", "")
         vol = m.get("volume_24h", 0) or 0
-        s_style = "green" if "yes" in sentiment else "red" if "no" in sentiment else "yellow"
+        s_style = (
+            "green" if "yes" in sentiment else "red" if "no" in sentiment else "yellow"
+        )
         table.add_row(
             (m.get("question", "")[:50]),
             f"{yes_pct:.0f}%",
@@ -653,6 +751,7 @@ def predictions(ctx: click.Context, limit: int) -> None:
 # ---------------------------------------------------------------------------
 # Displacement
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="displacement")
 @click.option("--year", "-y", default=None, type=int, help="Reporting year")
@@ -691,6 +790,7 @@ def displacement_cmd(ctx: click.Context, year: int | None) -> None:
 # Aviation
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.pass_context
 def delays(ctx: click.Context) -> None:
@@ -703,8 +803,10 @@ def delays(ctx: click.Context) -> None:
         return
 
     delayed = data.get("delayed", [])
-    console.print(f"[bold]{data.get('delayed_count', 0)} airports with delays[/bold] "
-                  f"(checked {data.get('total_checked', 0)})\n")
+    console.print(
+        f"[bold]{data.get('delayed_count', 0)} airports with delays[/bold] "
+        f"(checked {data.get('total_checked', 0)})\n"
+    )
 
     if not delayed:
         console.print("[green]No major airport delays![/green]")
@@ -717,10 +819,14 @@ def delays(ctx: click.Context) -> None:
 
     for d in delayed:
         statuses = d.get("status", [])
-        info = "; ".join(
-            f"{s.get('type', '')} - {s.get('reason', '')} ({s.get('avg_delay', '')})"
-            for s in statuses
-        ) if statuses else "Details unavailable"
+        info = (
+            "; ".join(
+                f"{s.get('type', '')} - {s.get('reason', '')} ({s.get('avg_delay', '')})"
+                for s in statuses
+            )
+            if statuses
+            else "Details unavailable"
+        )
         table.add_row(d.get("code", ""), d.get("name", ""), info[:80])
     console.print(table)
 
@@ -728,6 +834,7 @@ def delays(ctx: click.Context) -> None:
 # ---------------------------------------------------------------------------
 # Cyber
 # ---------------------------------------------------------------------------
+
 
 @main.command()
 @click.option("--limit", "-n", default=30, help="Max threats")
@@ -742,12 +849,16 @@ def threats(ctx: click.Context, limit: int) -> None:
         return
 
     by_sev = data.get("by_severity", {})
-    console.print(f"[bold]{data.get('count', 0)} threats[/bold] "
-                  f"({data.get('feeds_successful', 0)}/{data.get('feeds_attempted', 0)} feeds)")
-    console.print(f"  [red]Critical: {by_sev.get('critical', 0)}[/red]  "
-                  f"[yellow]High: {by_sev.get('high', 0)}[/yellow]  "
-                  f"Medium: {by_sev.get('medium', 0)}  "
-                  f"[dim]Low: {by_sev.get('low', 0)}[/dim]\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} threats[/bold] "
+        f"({data.get('feeds_successful', 0)}/{data.get('feeds_attempted', 0)} feeds)"
+    )
+    console.print(
+        f"  [red]Critical: {by_sev.get('critical', 0)}[/red]  "
+        f"[yellow]High: {by_sev.get('high', 0)}[/yellow]  "
+        f"Medium: {by_sev.get('medium', 0)}  "
+        f"[dim]Low: {by_sev.get('low', 0)}[/dim]\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Severity")
@@ -758,7 +869,12 @@ def threats(ctx: click.Context, limit: int) -> None:
 
     for t in data.get("threats", [])[:limit]:
         sev = t.get("severity", "")
-        sev_style = {"critical": "red bold", "high": "yellow", "medium": "", "low": "dim"}.get(sev, "")
+        sev_style = {
+            "critical": "red bold",
+            "high": "yellow",
+            "medium": "",
+            "low": "dim",
+        }.get(sev, "")
         sev_str = f"[{sev_style}]{sev}[/{sev_style}]" if sev_style else sev
         table.add_row(
             sev_str,
@@ -774,6 +890,7 @@ def threats(ctx: click.Context, limit: int) -> None:
 # Intelligence
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.argument("country_code", default="US")
 @click.pass_context
@@ -786,14 +903,20 @@ def brief(ctx: click.Context, country_code: str) -> None:
         _print_json(data)
         return
 
-    llm_tag = "[green]LLM[/green]" if data.get("llm_available") else "[yellow]data-only[/yellow]"
+    llm_tag = (
+        "[green]LLM[/green]"
+        if data.get("llm_available")
+        else "[yellow]data-only[/yellow]"
+    )
     console.print(f"[bold]Intelligence Brief: {country_code}[/bold] ({llm_tag})\n")
     console.print(data.get("brief", "No brief available."))
 
     d = data.get("data", {})
     if d.get("gdp") or d.get("recent_events"):
-        console.print(f"\n[dim]GDP data points: {len(d.get('gdp', []))} | "
-                      f"Recent conflict events: {d.get('recent_events', 0)}[/dim]")
+        console.print(
+            f"\n[dim]GDP data points: {len(d.get('gdp', []))} | "
+            f"Recent conflict events: {d.get('recent_events', 0)}[/dim]"
+        )
 
 
 @main.command()
@@ -802,6 +925,7 @@ def brief(ctx: click.Context, country_code: str) -> None:
 def dossier(ctx: click.Context, country: str) -> None:
     """Comprehensive country intelligence dossier."""
     from .analysis.dossier import fetch_country_dossier
+
     f = _get_fetcher()
     data = _run(fetch_country_dossier(f, country=country))
 
@@ -810,8 +934,10 @@ def dossier(ctx: click.Context, country: str) -> None:
         return
 
     overview = data.get("overview", {})
-    console.print(f"[bold]Country Dossier: {overview.get('country', country)}[/bold] "
-                  f"({overview.get('iso2')}/{overview.get('iso3')})\n")
+    console.print(
+        f"[bold]Country Dossier: {overview.get('country', country)}[/bold] "
+        f"({overview.get('iso2')}/{overview.get('iso3')})\n"
+    )
 
     # Economy
     econ = data.get("economy", {})
@@ -819,7 +945,9 @@ def dossier(ctx: click.Context, country: str) -> None:
         gdp = econ.get("gdp", [])
         if gdp:
             latest = gdp[0]
-            console.print(f"[cyan]Economy:[/cyan] GDP {latest.get('year')}: ${latest.get('value', 0)/1e9:,.1f}B")
+            console.print(
+                f"[cyan]Economy:[/cyan] GDP {latest.get('year')}: ${latest.get('value', 0) / 1e9:,.1f}B"
+            )
         if econ.get("conflict_events_30d"):
             console.print(f"  Conflict events (30d): {econ['conflict_events_30d']}")
 
@@ -827,15 +955,19 @@ def dossier(ctx: click.Context, country: str) -> None:
     mkt = data.get("markets", {})
     if "ticker" in mkt:
         q = mkt.get("quote", {})
-        console.print(f"[green]Markets:[/green] {mkt['ticker']} = {q.get('price', 'N/A')} ({q.get('change_pct', 'N/A')}%)")
+        console.print(
+            f"[green]Markets:[/green] {mkt['ticker']} = {q.get('price', 'N/A')} ({q.get('change_pct', 'N/A')}%)"
+        )
 
     # Elections
     elec = data.get("elections", {})
     upcoming = elec.get("upcoming", [])
     if upcoming:
         next_e = upcoming[0]
-        console.print(f"[yellow]Elections:[/yellow] {next_e.get('election_type')} on {next_e.get('date')} "
-                      f"(risk: {next_e.get('risk_score', 0):.0f})")
+        console.print(
+            f"[yellow]Elections:[/yellow] {next_e.get('election_type')} on {next_e.get('date')} "
+            f"(risk: {next_e.get('risk_score', 0):.0f})"
+        )
 
     # Sanctions
     sanc = data.get("sanctions", {})
@@ -881,7 +1013,12 @@ def risk(ctx: click.Context, limit: int) -> None:
 
     for i, c in enumerate(data.get("countries", []), 1):
         level = c.get("risk_level", "")
-        l_style = {"critical": "red bold", "elevated": "yellow", "moderate": "", "low": "dim"}.get(level, "")
+        l_style = {
+            "critical": "red bold",
+            "elevated": "yellow",
+            "moderate": "",
+            "low": "dim",
+        }.get(level, "")
         l_str = f"[{l_style}]{level}[/{l_style}]" if l_style else level
         table.add_row(
             str(i),
@@ -908,7 +1045,9 @@ def instability(ctx: click.Context, country_code: str | None) -> None:
     if country_code:
         idx = data.get("instability_index", 0)
         level = data.get("risk_level", "")
-        console.print(f"[bold]{country_code} Instability Index: {idx}/100 ({level})[/bold]\n")
+        console.print(
+            f"[bold]{country_code} Instability Index: {idx}/100 ({level})[/bold]\n"
+        )
         components = data.get("components", {})
         for name, score in components.items():
             bar = "█" * int(score) + "░" * (20 - int(score))
@@ -922,7 +1061,12 @@ def instability(ctx: click.Context, country_code: str | None) -> None:
 
         for c in data.get("countries", []):
             level = c.get("risk_level", "")
-            l_style = {"critical": "red bold", "high": "yellow", "medium": "", "low": "dim"}.get(level, "")
+            l_style = {
+                "critical": "red bold",
+                "high": "yellow",
+                "medium": "",
+                "low": "dim",
+            }.get(level, "")
             l_str = f"[{l_style}]{level}[/{l_style}]" if l_style else level
             table.add_row(
                 f"{c.get('country_name', '')} ({c.get('country_code', '')})",
@@ -936,6 +1080,7 @@ def instability(ctx: click.Context, country_code: str | None) -> None:
 # ---------------------------------------------------------------------------
 # Finance (additional)
 # ---------------------------------------------------------------------------
+
 
 @main.command()
 @click.pass_context
@@ -954,14 +1099,33 @@ def btc(ctx: click.Context) -> None:
     table.add_column("Value", justify="right")
 
     table.add_row("SMA-50", f"${data.get('sma_50', 0):,.2f}")
-    table.add_row("SMA-200", f"${data.get('sma_200', 0):,.2f}" if data.get('sma_200') else "N/A")
-    table.add_row("Mayer Multiple", f"{data.get('mayer_multiple', 0):.4f}" if data.get('mayer_multiple') else "N/A")
-    cross = data.get('cross_signal', 'neutral')
-    c_style = "green" if cross == "golden_cross" else "red" if cross == "death_cross" else ""
-    table.add_row("Cross Signal", f"[{c_style}]{cross}[/{c_style}]" if c_style else cross)
+    table.add_row(
+        "SMA-200", f"${data.get('sma_200', 0):,.2f}" if data.get("sma_200") else "N/A"
+    )
+    table.add_row(
+        "Mayer Multiple",
+        f"{data.get('mayer_multiple', 0):.4f}" if data.get("mayer_multiple") else "N/A",
+    )
+    cross = data.get("cross_signal", "neutral")
+    c_style = (
+        "green" if cross == "golden_cross" else "red" if cross == "death_cross" else ""
+    )
+    table.add_row(
+        "Cross Signal", f"[{c_style}]{cross}[/{c_style}]" if c_style else cross
+    )
     table.add_row("ATH Distance", f"{data.get('ath_distance_pct', 0):.1f}%")
-    table.add_row("7d Change", f"{data.get('change_7d_pct', 0):+.2f}%" if data.get('change_7d_pct') is not None else "N/A")
-    table.add_row("30d Change", f"{data.get('change_30d_pct', 0):+.2f}%" if data.get('change_30d_pct') is not None else "N/A")
+    table.add_row(
+        "7d Change",
+        f"{data.get('change_7d_pct', 0):+.2f}%"
+        if data.get("change_7d_pct") is not None
+        else "N/A",
+    )
+    table.add_row(
+        "30d Change",
+        f"{data.get('change_30d_pct', 0):+.2f}%"
+        if data.get("change_30d_pct") is not None
+        else "N/A",
+    )
     console.print(table)
 
 
@@ -976,7 +1140,11 @@ def central_banks_cmd(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    fred_tag = "[green]FRED[/green]" if data.get("fred_available") else "[yellow]curated[/yellow]"
+    fred_tag = (
+        "[green]FRED[/green]"
+        if data.get("fred_available")
+        else "[yellow]curated[/yellow]"
+    )
     console.print(f"[bold]{data.get('count', 0)} Central Banks[/bold] ({fred_tag})\n")
 
     table = Table(box=box.SIMPLE_HEAVY)
@@ -987,9 +1155,19 @@ def central_banks_cmd(ctx: click.Context) -> None:
 
     for r in data.get("rates", []):
         rate = r.get("rate", 0)
-        style = "red bold" if rate >= 10 else "yellow" if rate >= 5 else "green" if rate < 1 else ""
+        style = (
+            "red bold"
+            if rate >= 10
+            else "yellow"
+            if rate >= 5
+            else "green"
+            if rate < 1
+            else ""
+        )
         rate_str = f"[{style}]{rate:.2f}[/{style}]" if style else f"{rate:.2f}"
-        table.add_row(r.get("bank", ""), r.get("country", ""), rate_str, r.get("as_of", ""))
+        table.add_row(
+            r.get("bank", ""), r.get("country", ""), rate_str, r.get("as_of", "")
+        )
     console.print(table)
 
 
@@ -1004,8 +1182,10 @@ def shipping_cmd(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]Shipping Stress: {data.get('assessment', '?')}[/bold] "
-                  f"(score: {data.get('stress_score', 0):.0f}/100)\n")
+    console.print(
+        f"[bold]Shipping Stress: {data.get('assessment', '?')}[/bold] "
+        f"(score: {data.get('stress_score', 0):.0f}/100)\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Symbol", style="bold")
@@ -1015,13 +1195,18 @@ def shipping_cmd(ctx: click.Context) -> None:
     for q in data.get("quotes", []):
         chg = q.get("change_pct") or 0
         style = "green" if chg >= 0 else "red"
-        table.add_row(q.get("symbol", ""), f"${q.get('price', 0):,.2f}", f"[{style}]{chg:+.2f}%[/{style}]")
+        table.add_row(
+            q.get("symbol", ""),
+            f"${q.get('price', 0):,.2f}",
+            f"[{style}]{chg:+.2f}%[/{style}]",
+        )
     console.print(table)
 
 
 # ---------------------------------------------------------------------------
 # Social & Health
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="social")
 @click.pass_context
@@ -1035,14 +1220,20 @@ def social_cmd(ctx: click.Context) -> None:
         return
 
     metrics = data.get("velocity_metrics", {})
-    console.print(f"[bold]Social Signals[/bold] — {metrics.get('total_posts', 0)} posts, "
-                  f"{metrics.get('high_engagement_count', 0)} high engagement\n")
+    console.print(
+        f"[bold]Social Signals[/bold] — {metrics.get('total_posts', 0)} posts, "
+        f"{metrics.get('high_engagement_count', 0)} high engagement\n"
+    )
 
     for post in data.get("top_posts", [])[:15]:
         score = post.get("score", 0)
         style = "bold" if score >= 1000 else ""
         title = post.get("title", "")[:80]
-        console.print(f"  [{style}]{score:>5}[/{style}]  {title}" if style else f"  {score:>5}  {title}")
+        console.print(
+            f"  [{style}]{score:>5}[/{style}]  {title}"
+            if style
+            else f"  {score:>5}  {title}"
+        )
 
 
 @main.command(name="disease")
@@ -1056,8 +1247,10 @@ def disease_cmd(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('count', 0)} outbreak reports[/bold] "
-                  f"([red]{data.get('high_concern_count', 0)} high concern[/red])\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} outbreak reports[/bold] "
+        f"([red]{data.get('high_concern_count', 0)} high concern[/red])\n"
+    )
 
     for item in data.get("items", [])[:20]:
         hc = "[red]HC[/red] " if item.get("is_high_concern") else "    "
@@ -1089,13 +1282,20 @@ def elections_cmd(ctx: click.Context, country: str | None) -> None:
         risk = e.get("risk_score", 0)
         r_style = "red bold" if risk >= 4 else "yellow" if risk >= 2 else ""
         r_str = f"[{r_style}]{risk:.1f}[/{r_style}]" if r_style else f"{risk:.1f}"
-        table.add_row(e.get("date", ""), e.get("country", ""), e.get("type", ""), str(e.get("days_until", "")), r_str)
+        table.add_row(
+            e.get("date", ""),
+            e.get("country", ""),
+            e.get("type", ""),
+            str(e.get("days_until", "")),
+            r_str,
+        )
     console.print(table)
 
 
 # ---------------------------------------------------------------------------
 # Specialist
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="nuclear")
 @click.option("--hours", "-h", default=72, help="Lookback hours")
@@ -1109,8 +1309,10 @@ def nuclear_cmd(ctx: click.Context, hours: int) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('total_flagged_events', 0)} flagged events[/bold] "
-                  f"([red]{data.get('critical_flags', 0)} critical[/red]) in last {hours}h\n")
+    console.print(
+        f"[bold]{data.get('total_flagged_events', 0)} flagged events[/bold] "
+        f"([red]{data.get('critical_flags', 0)} critical[/red]) in last {hours}h\n"
+    )
 
     for site in data.get("sites", []):
         n = site.get("name", "")
@@ -1135,7 +1337,13 @@ def space_cmd(ctx: click.Context) -> None:
     table.add_column("Metric", style="bold")
     table.add_column("Value", justify="right")
 
-    for key in ("k_index", "solar_wind_speed_km_s", "solar_wind_density", "bz_gsm_nt", "flux_10_7"):
+    for key in (
+        "k_index",
+        "solar_wind_speed_km_s",
+        "solar_wind_density",
+        "bz_gsm_nt",
+        "flux_10_7",
+    ):
         val = data.get(key)
         if val is not None:
             table.add_row(key.replace("_", " ").title(), str(val))
@@ -1155,8 +1363,10 @@ def sanctions_cmd(ctx: click.Context, query: str, country: str | None) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('count', 0)} matches[/bold] for '{query}' "
-                  f"(from {data.get('total_entities', 0)} total)\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} matches[/bold] for '{query}' "
+        f"(from {data.get('total_entities', 0)} total)\n"
+    )
 
     for m in data.get("matches", [])[:20]:
         etype = m.get("entity_type", "")
@@ -1187,6 +1397,7 @@ def ai_watch_cmd(ctx: click.Context) -> None:
 # Navy
 # ---------------------------------------------------------------------------
 
+
 @main.command(name="fleet")
 @click.pass_context
 def fleet_cmd(ctx: click.Context) -> None:
@@ -1203,10 +1414,14 @@ def fleet_cmd(ctx: click.Context) -> None:
     totals = data.get("force_totals", {})
     if totals.get("battle_force"):
         bf = totals["battle_force"]
-        console.print(f"  Battle Force: {bf.get('total', 0)} ships ({bf.get('uss', 0)} USS, {bf.get('usns', 0)} USNS)")
+        console.print(
+            f"  Battle Force: {bf.get('total', 0)} ships ({bf.get('uss', 0)} USS, {bf.get('usns', 0)} USNS)"
+        )
     if totals.get("deployed"):
         dp = totals["deployed"]
-        console.print(f"  Deployed: {dp.get('total', 0)} ({dp.get('uss', 0)} USS, {dp.get('usns', 0)} USNS)")
+        console.print(
+            f"  Deployed: {dp.get('total', 0)} ({dp.get('uss', 0)} USS, {dp.get('usns', 0)} USNS)"
+        )
 
     ships = data.get("ships", [])
     if ships:
@@ -1217,13 +1432,19 @@ def fleet_cmd(ctx: click.Context) -> None:
         table.add_column("Type")
         table.add_column("Region")
         for s in ships[:20]:
-            table.add_row(s.get("name", ""), s.get("hull_number", ""), s.get("type", ""), s.get("region", ""))
+            table.add_row(
+                s.get("name", ""),
+                s.get("hull_number", ""),
+                s.get("type", ""),
+                s.get("region", ""),
+            )
         console.print(table)
 
 
 # ---------------------------------------------------------------------------
 # Tech & Science
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="hn")
 @click.option("--limit", "-n", default=20, help="Number of stories")
@@ -1303,13 +1524,16 @@ def spending_cmd(ctx: click.Context, limit: int) -> None:
     for a in data.get("agencies", []):
         budget = a.get("budget_authority", 0) or 0
         obligated = a.get("obligated", 0) or 0
-        table.add_row(a.get("name", ""), f"${budget/1e9:,.1f}B", f"${obligated/1e9:,.1f}B")
+        table.add_row(
+            a.get("name", ""), f"${budget / 1e9:,.1f}B", f"${obligated / 1e9:,.1f}B"
+        )
     console.print(table)
 
 
 # ---------------------------------------------------------------------------
 # Geospatial (static datasets)
 # ---------------------------------------------------------------------------
+
 
 @main.command(name="bases")
 @click.option("--operator", "-o", default=None, help="Operator country (USA, RUS, CHN)")
@@ -1323,7 +1547,9 @@ def bases_cmd(ctx: click.Context, operator: str | None, country: str | None) -> 
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('count', 0)} bases[/bold] (of {data.get('total_in_database', 0)})\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} bases[/bold] (of {data.get('total_in_database', 0)})\n"
+    )
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Name", style="bold")
     table.add_column("Operator")
@@ -1332,12 +1558,20 @@ def bases_cmd(ctx: click.Context, operator: str | None, country: str | None) -> 
     table.add_column("Branch")
 
     for b in data.get("bases", [])[:30]:
-        table.add_row(b.get("name", ""), b.get("operator", ""), b.get("country", ""), b.get("type", ""), b.get("branch", ""))
+        table.add_row(
+            b.get("name", ""),
+            b.get("operator", ""),
+            b.get("country", ""),
+            b.get("type", ""),
+            b.get("branch", ""),
+        )
     console.print(table)
 
 
 @main.command(name="exchanges")
-@click.option("--tier", "-t", default=None, type=click.Choice(["mega", "major", "mid", "small"]))
+@click.option(
+    "--tier", "-t", default=None, type=click.Choice(["mega", "major", "mid", "small"])
+)
 @click.option("--country", "-c", default=None, help="Country filter")
 @click.pass_context
 def exchanges_cmd(ctx: click.Context, tier: str | None, country: str | None) -> None:
@@ -1348,8 +1582,10 @@ def exchanges_cmd(ctx: click.Context, tier: str | None, country: str | None) -> 
         _print_json(data)
         return
 
-    console.print(f"[bold]{data.get('count', 0)} exchanges[/bold] "
-                  f"(${data.get('total_market_cap_usd_t', 0):.1f}T total market cap)\n")
+    console.print(
+        f"[bold]{data.get('count', 0)} exchanges[/bold] "
+        f"(${data.get('total_market_cap_usd_t', 0):.1f}T total market cap)\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Exchange", style="bold")
@@ -1358,7 +1594,12 @@ def exchanges_cmd(ctx: click.Context, tier: str | None, country: str | None) -> 
     table.add_column("Market Cap ($T)", justify="right")
 
     for e in data.get("exchanges", [])[:30]:
-        table.add_row(e.get("name", ""), e.get("country", ""), e.get("tier", ""), f"{e.get('market_cap_usd_t', 0):.2f}")
+        table.add_row(
+            e.get("name", ""),
+            e.get("country", ""),
+            e.get("tier", ""),
+            f"{e.get('market_cap_usd_t', 0):.2f}",
+        )
     console.print(table)
 
 
@@ -1366,11 +1607,13 @@ def exchanges_cmd(ctx: click.Context, tier: str | None, country: str | None) -> 
 # Traffic, Aviation, Webcams
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.pass_context
 def traffic(ctx: click.Context) -> None:
     """Real-time traffic congestion for 20 major cities (TomTom)."""
     from .sources.traffic import fetch_traffic_flow
+
     f = _get_fetcher()
     data = _run(fetch_traffic_flow(f))
 
@@ -1378,8 +1621,10 @@ def traffic(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]Global Traffic[/bold] — {data.get('count', 0)} cities, "
-                  f"avg congestion {data.get('global_avg_congestion', 0):.0f}%\n")
+    console.print(
+        f"[bold]Global Traffic[/bold] — {data.get('count', 0)} cities, "
+        f"avg congestion {data.get('global_avg_congestion', 0):.0f}%\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("City", style="bold")
@@ -1390,9 +1635,12 @@ def traffic(ctx: click.Context) -> None:
     for c in data.get("cities", [])[:20]:
         cong = c.get("congestion_pct", 0)
         style = "red" if cong > 60 else "yellow" if cong > 30 else "green"
-        table.add_row(c.get("name", ""), c.get("country", ""),
-                      f"[{style}]{cong}%[/{style}]",
-                      str(c.get("current_speed_kmh", "")))
+        table.add_row(
+            c.get("name", ""),
+            c.get("country", ""),
+            f"[{style}]{cong}%[/{style}]",
+            str(c.get("current_speed_kmh", "")),
+        )
     console.print(table)
 
 
@@ -1401,6 +1649,7 @@ def traffic(ctx: click.Context) -> None:
 def incidents(ctx: click.Context) -> None:
     """Major traffic incidents across strategic regions (TomTom)."""
     from .sources.traffic import fetch_traffic_incidents
+
     f = _get_fetcher()
     data = _run(fetch_traffic_incidents(f))
 
@@ -1408,8 +1657,10 @@ def incidents(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]Traffic Incidents[/bold] — {data.get('total_count', 0)} across "
-                  f"{data.get('regions_checked', 0)} regions\n")
+    console.print(
+        f"[bold]Traffic Incidents[/bold] — {data.get('total_count', 0)} across "
+        f"{data.get('regions_checked', 0)} regions\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Region")
@@ -1439,7 +1690,9 @@ def air_traffic_cmd(ctx: click.Context) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]Air Traffic[/bold] — {data.get('total_aircraft', 0)} airborne\n")
+    console.print(
+        f"[bold]Air Traffic[/bold] — {data.get('total_aircraft', 0)} airborne\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY, title="By Region")
     table.add_column("Region", style="bold")
@@ -1447,8 +1700,12 @@ def air_traffic_cmd(ctx: click.Context) -> None:
     table.add_column("Commercial", justify="right")
     table.add_column("General", justify="right")
 
-    for region, stats in sorted(data.get("by_region", {}).items(), key=lambda x: -x[1]["count"]):
-        table.add_row(region, str(stats["count"]), str(stats["commercial"]), str(stats["general"]))
+    for region, stats in sorted(
+        data.get("by_region", {}).items(), key=lambda x: -x[1]["count"]
+    ):
+        table.add_row(
+            region, str(stats["count"]), str(stats["commercial"]), str(stats["general"])
+        )
     console.print(table)
 
     if data.get("busiest_origins"):
@@ -1464,6 +1721,7 @@ def air_traffic_cmd(ctx: click.Context) -> None:
 def webcams_cmd(ctx: click.Context, category: str, limit: int) -> None:
     """Public webcam locations worldwide (Windy)."""
     from .sources.webcams import fetch_webcams
+
     f = _get_fetcher()
     data = _run(fetch_webcams(f, category=category, limit=limit))
 
@@ -1471,7 +1729,9 @@ def webcams_cmd(ctx: click.Context, category: str, limit: int) -> None:
         _print_json(data)
         return
 
-    console.print(f"[bold]Webcams[/bold] — {data.get('count', 0)} cameras ({category})\n")
+    console.print(
+        f"[bold]Webcams[/bold] — {data.get('count', 0)} cameras ({category})\n"
+    )
 
     table = Table(box=box.SIMPLE_HEAVY)
     table.add_column("Title", style="bold", max_width=30)
@@ -1480,14 +1740,19 @@ def webcams_cmd(ctx: click.Context, category: str, limit: int) -> None:
     table.add_column("Status")
 
     for cam in data.get("cameras", []):
-        table.add_row(cam.get("title", "")[:30], cam.get("city", ""),
-                      cam.get("country", ""), cam.get("status", ""))
+        table.add_row(
+            cam.get("title", "")[:30],
+            cam.get("city", ""),
+            cam.get("country", ""),
+            cam.get("status", ""),
+        )
     console.print(table)
 
 
 # ---------------------------------------------------------------------------
 # System
 # ---------------------------------------------------------------------------
+
 
 @main.command()
 @click.pass_context
@@ -1504,8 +1769,10 @@ def status(ctx: click.Context) -> None:
     console.print(Panel("[bold]World Intelligence Status[/bold]"))
 
     # Cache
-    console.print(f"\n[bold]Cache:[/bold] {cache_stats.get('active_entries', 0)} active, "
-                  f"{cache_stats.get('expired_entries', 0)} expired")
+    console.print(
+        f"\n[bold]Cache:[/bold] {cache_stats.get('active_entries', 0)} active, "
+        f"{cache_stats.get('expired_entries', 0)} expired"
+    )
 
     # Circuit breakers
     if breaker_status:
@@ -1517,12 +1784,16 @@ def status(ctx: click.Context) -> None:
 
         for source, info in sorted(breaker_status.items()):
             s = info.get("status", "closed")
-            style = "green" if s == "closed" else "yellow" if s == "half-open" else "red"
+            style = (
+                "green" if s == "closed" else "yellow" if s == "half-open" else "red"
+            )
             table.add_row(
                 source,
                 f"[{style}]{s}[/{style}]",
                 str(info.get("failures", 0)),
-                f"{info.get('cooldown_remaining_s', 0):.0f}s" if info.get("cooldown_remaining_s") else "",
+                f"{info.get('cooldown_remaining_s', 0):.0f}s"
+                if info.get("cooldown_remaining_s")
+                else "",
             )
         console.print(table)
     else:
@@ -1537,8 +1808,12 @@ def sync_cmd(source: str | None) -> None:
     if source:
         # Delete all cache entries matching this source prefix
         # Simple approach: evict expired, then note we can't selectively clear yet
-        console.print(f"[yellow]Force sync not yet implemented for specific source '{source}'[/yellow]")
-        console.print("[dim]Workaround: cache entries expire naturally based on TTL[/dim]")
+        console.print(
+            f"[yellow]Force sync not yet implemented for specific source '{source}'[/yellow]"
+        )
+        console.print(
+            "[dim]Workaround: cache entries expire naturally based on TTL[/dim]"
+        )
     else:
         removed = f.cache.evict_expired()
         console.print(f"Evicted {removed} expired cache entries")
@@ -1551,8 +1826,66 @@ def dashboard(port: int, host: str) -> None:
     """Launch the live intelligence dashboard."""
     from .dashboard.app import run as run_dashboard
 
-    console.print(f"[bold]Starting Intelligence Dashboard[/bold] on http://{host}:{port}")
+    console.print(
+        f"[bold]Starting Intelligence Dashboard[/bold] on http://{host}:{port}"
+    )
     run_dashboard(host=host, port=port)
+
+
+@main.command()
+@click.option(
+    "--output", "-o", type=click.Path(), default=None, help="Output file path"
+)
+@click.option("--title", "-t", default=None, help="Report title")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["pdf", "html"]),
+    default="pdf",
+    help="Output format",
+)
+@click.option(
+    "--sections", "-s", default=None, help="Comma-separated section names to include"
+)
+def report(
+    output: str | None, title: str | None, fmt: str, sections: str | None
+) -> None:
+    """Generate a PDF or HTML intelligence report."""
+    from .reports import generate_report
+
+    f = _get_fetcher()
+    section_list = [s.strip() for s in sections.split(",")] if sections else None
+
+    with console.status("[bold]Generating report..."):
+        result = asyncio.run(
+            generate_report(
+                f, output_path=output, title=title, sections=section_list, fmt=fmt
+            )
+        )
+
+    if "error" in result:
+        console.print(f"[red]Error:[/red] {result['error']}")
+        if "fallback" in result:
+            console.print(f"[yellow]{result['fallback']}[/yellow]")
+        return
+
+    console.print(
+        Panel(
+            f"[bold green]Report generated[/bold green]\n\n"
+            f"Path: {result['path']}\n"
+            f"Format: {result['format']}\n"
+            f"Size: {result['size_bytes']:,} bytes\n"
+            f"Sections: {', '.join(result['sections_included'])}\n"
+            f"Time: {result['generation_seconds']}s"
+            + (
+                f"\n[yellow]Failed: {', '.join(result['sections_failed'])}[/yellow]"
+                if result["sections_failed"]
+                else ""
+            ),
+            title="Intelligence Report",
+            border_style="green",
+        )
+    )
 
 
 if __name__ == "__main__":
