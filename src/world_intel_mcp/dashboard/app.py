@@ -157,14 +157,22 @@ async def _fetch_overview() -> dict:
     }
 
     # Per-coro timeout so no single slow source blocks the entire dashboard.
-    # Without this, 80+ RSS feeds timing out sequentially can delay the
-    # first SSE frame for minutes, leaving the dashboard stuck at all-zeros.
+    # news_feed and trending_keywords get extra time (119 RSS feeds with semaphore).
+    _SLOW_SOURCES = {
+        "news_feed",
+        "trending_keywords",
+        "alert_digest",
+        "weekly_trends",
+        "strategic_posture",
+    }
+
     async def _with_timeout(name: str, coro, timeout: float = 45.0):
+        effective = 90.0 if name in _SLOW_SOURCES else timeout
         try:
-            return await asyncio.wait_for(coro, timeout=timeout)
+            return await asyncio.wait_for(coro, timeout=effective)
         except asyncio.TimeoutError:
-            logger.warning("Dashboard fetch %s timed out after %.0fs", name, timeout)
-            return {"error": f"timeout after {timeout}s", "_timeout": True}
+            logger.warning("Dashboard fetch %s timed out after %.0fs", name, effective)
+            return {"error": f"timeout after {effective}s", "_timeout": True}
 
     gathered = await asyncio.gather(
         *[_with_timeout(name, c) for name, c in zip(coros.keys(), coros.values())],

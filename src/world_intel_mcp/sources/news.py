@@ -30,7 +30,10 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"),
         ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
         ("AP Top News", "https://feedx.net/rss/ap.xml"),
-        ("Reuters World", "https://news.google.com/rss/search?q=source:Reuters&hl=en-US&gl=US&ceid=US:en"),
+        (
+            "Reuters World",
+            "https://news.google.com/rss/search?q=source:Reuters&hl=en-US&gl=US&ceid=US:en",
+        ),
         ("The Guardian World", "https://www.theguardian.com/world/rss"),
         ("DW News", "https://rss.dw.com/rss/en/top_news/rss-en-top"),
         ("France24", "https://www.france24.com/en/rss"),
@@ -56,7 +59,10 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("The Register", "https://www.theregister.com/headlines.atom"),
     ],
     "finance": [
-        ("CNBC", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
+        (
+            "CNBC",
+            "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",
+        ),
         ("MarketWatch", "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
         ("FT World", "https://www.ft.com/rss/home/uk"),
         ("Bloomberg", "https://feeds.bloomberg.com/markets/news.rss"),
@@ -68,12 +74,18 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("War on the Rocks", "https://warontherocks.com/feed/"),
         ("The War Zone", "https://www.twz.com/feed"),
         ("Breaking Defense", "https://breakingdefense.com/feed/"),
-        ("Military Times", "https://www.militarytimes.com/arc/outboundfeeds/rss/?outputType=xml"),
+        (
+            "Military Times",
+            "https://www.militarytimes.com/arc/outboundfeeds/rss/?outputType=xml",
+        ),
         ("USNI News", "https://news.usni.org/feed"),
     ],
     "science": [
         ("Nature", "https://www.nature.com/nature.rss"),
-        ("Science", "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science"),
+        (
+            "Science",
+            "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science",
+        ),
         ("Phys.org", "https://phys.org/rss-feed/"),
         ("New Scientist", "https://www.newscientist.com/feed/home/"),
         ("Scientific American", "https://rss.sciam.com/ScientificAmerican-Global"),
@@ -90,7 +102,10 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
     ],
     "middle_east": [
         ("Middle East Eye", "https://www.middleeasteye.net/rss"),
-        ("The National UAE", "https://www.thenationalnews.com/arc/outboundfeeds/rss/?outputType=xml"),
+        (
+            "The National UAE",
+            "https://www.thenationalnews.com/arc/outboundfeeds/rss/?outputType=xml",
+        ),
         ("Times of Israel", "https://www.timesofisrael.com/feed/"),
         ("Iran Intl", "https://www.iranintl.com/en/feed"),
     ],
@@ -98,7 +113,10 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("SCMP", "https://www.scmp.com/rss/91/feed"),
         ("Nikkei Asia", "https://asia.nikkei.com/rss/feed/nar"),
         ("The Diplomat", "https://thediplomat.com/feed/"),
-        ("Channel News Asia", "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml"),
+        (
+            "Channel News Asia",
+            "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml",
+        ),
         ("Lowy Interpreter", "https://www.lowyinstitute.org/the-interpreter/rss.xml"),
     ],
     "africa": [
@@ -136,7 +154,10 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
     ],
     "government": [
         ("State Dept", "https://www.state.gov/rss-feed/press-releases/feed/"),
-        ("DoD News", "https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=10"),
+        (
+            "DoD News",
+            "https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=10",
+        ),
         ("UN News", "https://news.un.org/feed/subscribe/en/news/all/rss.xml"),
         ("White House", "https://www.whitehouse.gov/feed/"),
     ],
@@ -297,23 +318,149 @@ SOURCE_TIERS: dict[str, str] = {
 }
 
 _STOPWORDS: set[str] = {
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
-    "should", "may", "might", "must", "can", "could", "in", "on", "at",
-    "to", "for", "of", "and", "or", "but", "nor", "not", "no", "so",
-    "yet", "both", "either", "neither", "with", "from", "by", "as",
-    "into", "through", "during", "before", "after", "above", "below",
-    "between", "under", "over", "about", "against", "out", "off", "up",
-    "down", "then", "once", "here", "there", "when", "where", "why",
-    "how", "all", "each", "every", "any", "few", "more", "most", "some",
-    "such", "only", "own", "same", "than", "too", "very", "just", "also",
-    "now", "it", "its", "he", "she", "they", "them", "their", "his",
-    "her", "we", "you", "your", "our", "my", "me", "him", "us",
-    "that", "this", "these", "those", "which", "who", "whom", "what",
-    "if", "while", "because", "until", "although", "since", "whether",
-    "new", "says", "said", "one", "two", "first", "last", "many",
-    "much", "get", "got", "back", "even", "still", "well", "way",
-    "s", "t", "re", "ve", "d", "ll", "m",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "shall",
+    "should",
+    "may",
+    "might",
+    "must",
+    "can",
+    "could",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "and",
+    "or",
+    "but",
+    "nor",
+    "not",
+    "no",
+    "so",
+    "yet",
+    "both",
+    "either",
+    "neither",
+    "with",
+    "from",
+    "by",
+    "as",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "between",
+    "under",
+    "over",
+    "about",
+    "against",
+    "out",
+    "off",
+    "up",
+    "down",
+    "then",
+    "once",
+    "here",
+    "there",
+    "when",
+    "where",
+    "why",
+    "how",
+    "all",
+    "each",
+    "every",
+    "any",
+    "few",
+    "more",
+    "most",
+    "some",
+    "such",
+    "only",
+    "own",
+    "same",
+    "than",
+    "too",
+    "very",
+    "just",
+    "also",
+    "now",
+    "it",
+    "its",
+    "he",
+    "she",
+    "they",
+    "them",
+    "their",
+    "his",
+    "her",
+    "we",
+    "you",
+    "your",
+    "our",
+    "my",
+    "me",
+    "him",
+    "us",
+    "that",
+    "this",
+    "these",
+    "those",
+    "which",
+    "who",
+    "whom",
+    "what",
+    "if",
+    "while",
+    "because",
+    "until",
+    "although",
+    "since",
+    "whether",
+    "new",
+    "says",
+    "said",
+    "one",
+    "two",
+    "first",
+    "last",
+    "many",
+    "much",
+    "get",
+    "got",
+    "back",
+    "even",
+    "still",
+    "well",
+    "way",
+    "s",
+    "t",
+    "re",
+    "ve",
+    "d",
+    "ll",
+    "m",
 }
 
 _GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -325,6 +472,7 @@ _PUNCT_RE = re.compile(f"[{re.escape(string.punctuation)}]")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_published(entry: dict) -> str | None:
     """Parse an RSS entry's published date to ISO 8601 UTC string.
@@ -369,6 +517,7 @@ def _truncate(text: str | None, max_len: int = 200) -> str:
 # ---------------------------------------------------------------------------
 # Function 1: RSS News Feed Aggregation
 # ---------------------------------------------------------------------------
+
 
 async def fetch_news_feed(
     fetcher: Fetcher,
@@ -440,15 +589,17 @@ async def fetch_news_feed(
         for entry in parsed.get("entries", []):
             published = _parse_published(entry)
             summary_raw = entry.get("summary") or entry.get("description") or ""
-            items.append({
-                "title": entry.get("title", ""),
-                "link": entry.get("link", ""),
-                "published": published,
-                "summary": _truncate(summary_raw, 200),
-                "feed_name": feed_name,
-                "category": cat,
-                "source_tier": SOURCE_TIERS.get(feed_name, "unknown"),
-            })
+            items.append(
+                {
+                    "title": entry.get("title", ""),
+                    "link": entry.get("link", ""),
+                    "published": published,
+                    "summary": _truncate(summary_raw, 200),
+                    "feed_name": feed_name,
+                    "category": cat,
+                    "source_tier": SOURCE_TIERS.get(feed_name, "unknown"),
+                }
+            )
 
         return items
 
@@ -456,15 +607,24 @@ async def fetch_news_feed(
         """Wrap single feed fetch with a hard timeout."""
         try:
             return await asyncio.wait_for(
-                _fetch_single_feed(feed_name, url, cat), timeout=12.0,
+                _fetch_single_feed(feed_name, url, cat),
+                timeout=12.0,
             )
         except asyncio.TimeoutError:
             logger.debug("RSS feed %s timed out", feed_name)
             return []
 
-    # Fetch ALL feeds across ALL categories in one parallel batch
+    # Fetch feeds with concurrency cap to avoid saturating the httpx pool.
+    # Without this, 119 RSS feeds + other source calls exceed the 50-connection
+    # pool limit, causing cascade timeouts across the entire dashboard.
+    sem = asyncio.Semaphore(25)
+
+    async def _throttled(feed_name: str, url: str, cat: str) -> list[dict]:
+        async with sem:
+            return await _safe_fetch(feed_name, url, cat)
+
     all_tasks = [
-        _safe_fetch(feed_name, url, cat)
+        _throttled(feed_name, url, cat)
         for cat, feeds in categories_to_fetch.items()
         for feed_name, url in feeds
     ]
@@ -493,6 +653,7 @@ async def fetch_news_feed(
 # ---------------------------------------------------------------------------
 # Function 2: Keyword Trending / Spike Detection
 # ---------------------------------------------------------------------------
+
 
 async def fetch_trending_keywords(
     fetcher: Fetcher,
@@ -559,6 +720,7 @@ async def fetch_trending_keywords(
 # Function 3: GDELT 2.0 Doc API Search
 # ---------------------------------------------------------------------------
 
+
 async def fetch_gdelt_search(
     fetcher: Fetcher,
     query: str = "conflict",
@@ -613,15 +775,17 @@ async def fetch_gdelt_search(
     if mode == "artlist":
         articles = []
         for article in data.get("articles", []):
-            articles.append({
-                "title": article.get("title"),
-                "url": article.get("url"),
-                "seendate": article.get("seendate"),
-                "socialimage": article.get("socialimage"),
-                "domain": article.get("domain"),
-                "language": article.get("language"),
-                "sourcecountry": article.get("sourcecountry"),
-            })
+            articles.append(
+                {
+                    "title": article.get("title"),
+                    "url": article.get("url"),
+                    "seendate": article.get("seendate"),
+                    "socialimage": article.get("socialimage"),
+                    "domain": article.get("domain"),
+                    "language": article.get("language"),
+                    "sourcecountry": article.get("sourcecountry"),
+                }
+            )
 
         return {
             "articles": articles,

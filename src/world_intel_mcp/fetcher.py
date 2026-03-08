@@ -67,7 +67,7 @@ class Fetcher:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.default_timeout),
                 follow_redirects=True,
-                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+                limits=httpx.Limits(max_connections=200, max_keepalive_connections=40),
                 headers={"User-Agent": "PhoenixAGI-WorldIntel/0.1"},
                 proxy=None,  # never inherit system SOCKS proxy
             )
