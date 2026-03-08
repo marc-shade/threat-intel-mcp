@@ -23,6 +23,8 @@ Phase 12: Extended geospatial (cables, datacenters, spaceports, minerals, exchan
           NASA EONET, GDACS disaster alerts (+14 = 82 tools).
 Phase 13: USNI fleet tracker, RSS expansion, report removal.
 Phase 14: BTC technicals, central bank rates, trade routes, cloud regions, financial centers (+5 = 87 tools).
+Phase 15: Business intelligence — forex (3), bonds/yields (2), earnings (2), SEC filings (3),
+          company enrichment (1), macro composite (1) (+12 = 99 tools).
 """
 
 import asyncio
@@ -38,7 +40,40 @@ from mcp.types import Tool, TextContent
 from .cache import Cache
 from .circuit_breaker import CircuitBreaker
 from .fetcher import Fetcher
-from .sources import markets, economic, seismology, wildfire, conflict, military, infrastructure, maritime, climate, news, intelligence, prediction, displacement, aviation, cyber, space_weather, ai_watch, health, sanctions, elections, shipping, social, nuclear, service_status, geospatial, hacker_news, github_trending, arxiv_papers, usa_spending, environmental, usni_fleet, central_banks
+from .sources import (
+    markets,
+    economic,
+    seismology,
+    wildfire,
+    conflict,
+    military,
+    infrastructure,
+    maritime,
+    climate,
+    news,
+    intelligence,
+    prediction,
+    displacement,
+    aviation,
+    cyber,
+    space_weather,
+    ai_watch,
+    health,
+    sanctions,
+    elections,
+    shipping,
+    social,
+    nuclear,
+    service_status,
+    geospatial,
+    hacker_news,
+    github_trending,
+    arxiv_papers,
+    usa_spending,
+    environmental,
+    usni_fleet,
+    central_banks,
+)
 
 logging.basicConfig(
     level=os.environ.get("WORLD_INTEL_LOG_LEVEL", "INFO"),
@@ -77,7 +112,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Number of coins (default 20)", "default": 20},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of coins (default 20)",
+                    "default": 20,
+                },
             },
         },
     ),
@@ -118,8 +157,15 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "series_id": {"type": "string", "description": "FRED series ID (e.g., 'UNRATE')"},
-                "limit": {"type": "integer", "description": "Number of observations", "default": 30},
+                "series_id": {
+                    "type": "string",
+                    "description": "FRED series ID (e.g., 'UNRATE')",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of observations",
+                    "default": 30,
+                },
             },
             "required": ["series_id"],
         },
@@ -130,7 +176,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "ISO country code (default: USA)", "default": "USA"},
+                "country": {
+                    "type": "string",
+                    "description": "ISO country code (default: USA)",
+                    "default": "USA",
+                },
                 "indicators": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -146,9 +196,21 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "min_magnitude": {"type": "number", "description": "Minimum magnitude (default 4.5)", "default": 4.5},
-                "hours": {"type": "integer", "description": "Lookback hours (default 24)", "default": 24},
-                "limit": {"type": "integer", "description": "Max results (default 50)", "default": 50},
+                "min_magnitude": {
+                    "type": "number",
+                    "description": "Minimum magnitude (default 4.5)",
+                    "default": 4.5,
+                },
+                "hours": {
+                    "type": "integer",
+                    "description": "Lookback hours (default 24)",
+                    "default": 24,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -162,8 +224,15 @@ TOOLS: list[Tool] = [
                     "type": "string",
                     "description": "Specific region (north_america, europe, etc.) or omit for all 9",
                     "enum": [
-                        "north_america", "south_america", "europe", "africa",
-                        "middle_east", "south_asia", "east_asia", "southeast_asia", "oceania",
+                        "north_america",
+                        "south_america",
+                        "europe",
+                        "africa",
+                        "middle_east",
+                        "south_asia",
+                        "east_asia",
+                        "southeast_asia",
+                        "oceania",
                     ],
                 },
             },
@@ -177,8 +246,16 @@ TOOLS: list[Tool] = [
             "type": "object",
             "properties": {
                 "country": {"type": "string", "description": "Country name filter"},
-                "days": {"type": "integer", "description": "Lookback days (default 7)", "default": 7},
-                "limit": {"type": "integer", "description": "Max results (default 100)", "default": 100},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback days (default 7)",
+                    "default": 7,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 100)",
+                    "default": 100,
+                },
             },
         },
     ),
@@ -188,8 +265,16 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "days": {"type": "integer", "description": "Lookback days (default 30)", "default": 30},
-                "limit": {"type": "integer", "description": "Max results (default 100)", "default": 100},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback days (default 30)",
+                    "default": 30,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 100)",
+                    "default": 100,
+                },
             },
         },
     ),
@@ -210,7 +295,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "bbox": {"type": "string", "description": "Bounding box: lamin,lomin,lamax,lomax"},
+                "bbox": {
+                    "type": "string",
+                    "description": "Bounding box: lamin,lomin,lamax,lomax",
+                },
             },
         },
     ),
@@ -248,7 +336,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "navarea": {"type": "string", "description": "NAVAREA number (e.g., IV, XII)"},
+                "navarea": {
+                    "type": "string",
+                    "description": "NAVAREA number (e.g., IV, XII)",
+                },
             },
         },
     ),
@@ -274,7 +365,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Number of markets (default 20)", "default": 20},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of markets (default 20)",
+                    "default": 20,
+                },
             },
         },
     ),
@@ -285,7 +380,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "year": {"type": "integer", "description": "Reporting year (default: last year)"},
+                "year": {
+                    "type": "integer",
+                    "description": "Reporting year (default: last year)",
+                },
             },
         },
     ),
@@ -302,7 +400,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Max threats (default 50)", "default": 50},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max threats (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -316,12 +418,38 @@ TOOLS: list[Tool] = [
                 "category": {
                     "type": "string",
                     "description": "Category filter (24 categories available)",
-                    "enum": ["geopolitics", "security", "technology", "finance", "military", "science",
-                             "think_tanks", "middle_east", "asia_pacific", "africa", "latin_america",
-                             "multilingual", "energy", "government", "crisis", "europe", "south_asia",
-                             "health", "central_asia", "arctic", "maritime", "space", "nuclear", "climate"],
+                    "enum": [
+                        "geopolitics",
+                        "security",
+                        "technology",
+                        "finance",
+                        "military",
+                        "science",
+                        "think_tanks",
+                        "middle_east",
+                        "asia_pacific",
+                        "africa",
+                        "latin_america",
+                        "multilingual",
+                        "energy",
+                        "government",
+                        "crisis",
+                        "europe",
+                        "south_asia",
+                        "health",
+                        "central_asia",
+                        "arctic",
+                        "maritime",
+                        "space",
+                        "nuclear",
+                        "climate",
+                    ],
                 },
-                "limit": {"type": "integer", "description": "Max items (default 50)", "default": 50},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max items (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -331,7 +459,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "min_count": {"type": "integer", "description": "Minimum occurrences (default 3)", "default": 3},
+                "min_count": {
+                    "type": "integer",
+                    "description": "Minimum occurrences (default 3)",
+                    "default": 3,
+                },
             },
         },
     ),
@@ -341,14 +473,22 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search query (default: 'conflict')", "default": "conflict"},
+                "query": {
+                    "type": "string",
+                    "description": "Search query (default: 'conflict')",
+                    "default": "conflict",
+                },
                 "mode": {
                     "type": "string",
                     "description": "artlist (articles) or timelinevol (volume timeline)",
                     "enum": ["artlist", "timelinevol"],
                     "default": "artlist",
                 },
-                "limit": {"type": "integer", "description": "Max records (default 50)", "default": 50},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max records (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -359,7 +499,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country_code": {"type": "string", "description": "ISO country code (default: US)", "default": "US"},
+                "country_code": {
+                    "type": "string",
+                    "description": "ISO country code (default: US)",
+                    "default": "US",
+                },
             },
         },
     ),
@@ -369,7 +513,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "ISO-2 or ISO-3 country code (e.g. US, USA, UA, UKR)", "default": "US"},
+                "country": {
+                    "type": "string",
+                    "description": "ISO-2 or ISO-3 country code (e.g. US, USA, UA, UKR)",
+                    "default": "US",
+                },
             },
         },
     ),
@@ -379,7 +527,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Top N countries (default 20)", "default": 20},
+                "limit": {
+                    "type": "integer",
+                    "description": "Top N countries (default 20)",
+                    "default": 20,
+                },
             },
         },
     ),
@@ -389,7 +541,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country_code": {"type": "string", "description": "ISO alpha-3 code (e.g., UKR). Omit for top-10 focus countries."},
+                "country_code": {
+                    "type": "string",
+                    "description": "ISO alpha-3 code (e.g., UKR). Omit for top-10 focus countries.",
+                },
             },
         },
     ),
@@ -399,9 +554,16 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "lat": {"type": "number", "description": "Center latitude (omit for 5 global hotspots)"},
+                "lat": {
+                    "type": "number",
+                    "description": "Center latitude (omit for 5 global hotspots)",
+                },
                 "lon": {"type": "number", "description": "Center longitude"},
-                "radius_deg": {"type": "number", "description": "Radius in degrees (default 5.0)", "default": 5.0},
+                "radius_deg": {
+                    "type": "number",
+                    "description": "Radius in degrees (default 5.0)",
+                    "default": 5.0,
+                },
             },
         },
     ),
@@ -416,7 +578,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "Country name filter (optional)"},
+                "country": {
+                    "type": "string",
+                    "description": "Country name filter (optional)",
+                },
             },
         },
     ),
@@ -432,8 +597,16 @@ TOOLS: list[Tool] = [
             "type": "object",
             "properties": {
                 "country": {"type": "string", "description": "Country name filter"},
-                "days": {"type": "integer", "description": "Lookback days (default 7)", "default": 7},
-                "limit": {"type": "integer", "description": "Max results (default 100)", "default": 100},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback days (default 7)",
+                    "default": 7,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 100)",
+                    "default": 100,
+                },
             },
         },
     ),
@@ -462,8 +635,12 @@ TOOLS: list[Tool] = [
                     "type": "string",
                     "description": "Cable corridor to simulate (e.g., red_sea, transpacific, asia_europe)",
                     "enum": [
-                        "transatlantic_north", "transatlantic_south",
-                        "asia_europe", "red_sea", "transpacific", "mediterranean",
+                        "transatlantic_north",
+                        "transatlantic_south",
+                        "asia_europe",
+                        "red_sea",
+                        "transpacific",
+                        "mediterranean",
                     ],
                 },
             },
@@ -482,7 +659,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Max items (default 50)", "default": 50},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max items (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -493,7 +674,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Max items (default 50)", "default": 50},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max items (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -506,8 +691,15 @@ TOOLS: list[Tool] = [
             "properties": {
                 "query": {"type": "string", "description": "Name substring to search"},
                 "country": {"type": "string", "description": "Country filter"},
-                "program": {"type": "string", "description": "Sanctions program filter"},
-                "limit": {"type": "integer", "description": "Max results (default 50)", "default": 50},
+                "program": {
+                    "type": "string",
+                    "description": "Sanctions program filter",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -518,7 +710,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "ISO-3 code or country name filter"},
+                "country": {
+                    "type": "string",
+                    "description": "ISO-3 code or country name filter",
+                },
             },
         },
     ),
@@ -535,7 +730,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Max posts per subreddit (default 25)", "default": 25},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max posts per subreddit (default 25)",
+                    "default": 25,
+                },
             },
         },
     ),
@@ -546,7 +745,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "hours": {"type": "integer", "description": "Lookback hours (default 72)", "default": 72},
+                "hours": {
+                    "type": "integer",
+                    "description": "Lookback hours (default 72)",
+                    "default": 72,
+                },
             },
         },
     ),
@@ -569,7 +772,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "provider": {"type": "string", "description": "Filter by provider (aws, azure, gcp, cloudflare, github)"},
+                "provider": {
+                    "type": "string",
+                    "description": "Filter by provider (aws, azure, gcp, cloudflare, github)",
+                },
             },
         },
     ),
@@ -580,10 +786,22 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "operator": {"type": "string", "description": "Filter by operating country (USA, RUS, CHN, GBR, FRA, NATO, IND, TUR, ISR, IRN, ARE)"},
-                "country": {"type": "string", "description": "Filter by host country name or ISO-3 code"},
-                "base_type": {"type": "string", "description": "Filter by type: air_base, naval_base, army_base, marine_base, training, space_base, missile_defense, expeditionary"},
-                "branch": {"type": "string", "description": "Filter by branch (USAF, US Navy, PLA Navy, RAF, etc.)"},
+                "operator": {
+                    "type": "string",
+                    "description": "Filter by operating country (USA, RUS, CHN, GBR, FRA, NATO, IND, TUR, ISR, IRN, ARE)",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by host country name or ISO-3 code",
+                },
+                "base_type": {
+                    "type": "string",
+                    "description": "Filter by type: air_base, naval_base, army_base, marine_base, training, space_base, missile_defense, expeditionary",
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Filter by branch (USAF, US Navy, PLA Navy, RAF, etc.)",
+                },
             },
         },
     ),
@@ -593,8 +811,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "port_type": {"type": "string", "description": "Filter by type: container, oil, lng, naval, bulk, mixed"},
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
+                "port_type": {
+                    "type": "string",
+                    "description": "Filter by type: container, oil, lng, naval, bulk, mixed",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
             },
         },
     ),
@@ -604,8 +828,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "pipeline_type": {"type": "string", "description": "Filter by type: oil, gas, hydrogen"},
-                "status": {"type": "string", "description": "Filter by status: active, destroyed, proposed, stalled, reduced, cancelled, construction, intermittent, terminated"},
+                "pipeline_type": {
+                    "type": "string",
+                    "description": "Filter by type: oil, gas, hydrogen",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: active, destroyed, proposed, stalled, reduced, cancelled, construction, intermittent, terminated",
+                },
             },
         },
     ),
@@ -615,9 +845,18 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "facility_type": {"type": "string", "description": "Filter by type: power, enrichment, research, reprocessing, decommissioned"},
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
-                "status": {"type": "string", "description": "Filter by status: operational, construction, shutdown, occupied, commissioning, decommissioning, exclusion_zone"},
+                "facility_type": {
+                    "type": "string",
+                    "description": "Filter by type: power, enrichment, research, reprocessing, decommissioned",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: operational, construction, shutdown, occupied, commissioning, decommissioning, exclusion_zone",
+                },
             },
         },
     ),
@@ -628,7 +867,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to analyze. If omitted, analyzes recent news headlines."},
+                "text": {
+                    "type": "string",
+                    "description": "Text to analyze. If omitted, analyzes recent news headlines.",
+                },
             },
         },
     ),
@@ -638,7 +880,10 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Event text or headline to classify."},
+                "text": {
+                    "type": "string",
+                    "description": "Event text or headline to classify.",
+                },
             },
             "required": ["text"],
         },
@@ -649,9 +894,18 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "category": {"type": "string", "description": "RSS feed category filter (geopolitics, security, military, etc.)"},
-                "limit": {"type": "integer", "description": "Max news items to cluster (default: 100)"},
-                "threshold": {"type": "number", "description": "Similarity threshold 0.0-1.0 (default: 0.25)"},
+                "category": {
+                    "type": "string",
+                    "description": "RSS feed category filter (geopolitics, security, military, etc.)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max news items to cluster (default: 100)",
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Similarity threshold 0.0-1.0 (default: 0.25)",
+                },
             },
         },
     ),
@@ -661,8 +915,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "min_count": {"type": "integer", "description": "Minimum keyword frequency to consider (default: 3)"},
-                "z_threshold": {"type": "number", "description": "Z-score threshold for spike detection (default: 2.0)"},
+                "min_count": {
+                    "type": "integer",
+                    "description": "Minimum keyword frequency to consider (default: 3)",
+                },
+                "z_threshold": {
+                    "type": "number",
+                    "description": "Z-score threshold for spike detection (default: 2.0)",
+                },
             },
         },
     ),
@@ -688,10 +948,17 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "radius_km": {"type": "number", "description": "Search radius in km (default: 200)", "default": 200},
+                "radius_km": {
+                    "type": "number",
+                    "description": "Search radius in km (default: 200)",
+                    "default": 200,
+                },
                 "event_types": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["earthquake", "wildfire", "conflict"]},
+                    "items": {
+                        "type": "string",
+                        "enum": ["earthquake", "wildfire", "conflict"],
+                    },
                     "description": "Event types to include (default: all three)",
                 },
             },
@@ -704,10 +971,22 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "status": {"type": "string", "description": "Filter by status: active, planned, construction, decommissioned"},
-                "country": {"type": "string", "description": "Filter by country in landing points"},
-                "owner": {"type": "string", "description": "Filter by cable owner (Google, Meta, Microsoft, etc.)"},
-                "min_capacity_tbps": {"type": "number", "description": "Minimum cable capacity in Tbps"},
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: active, planned, construction, decommissioned",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country in landing points",
+                },
+                "owner": {
+                    "type": "string",
+                    "description": "Filter by cable owner (Google, Meta, Microsoft, etc.)",
+                },
+                "min_capacity_tbps": {
+                    "type": "number",
+                    "description": "Minimum cable capacity in Tbps",
+                },
             },
         },
     ),
@@ -717,10 +996,22 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
-                "operator": {"type": "string", "description": "Filter by operator (AWS, Google, Microsoft, Meta, etc.)"},
-                "min_power_mw": {"type": "integer", "description": "Minimum power capacity in MW"},
-                "region": {"type": "string", "description": "Filter by region (North America, Europe, Asia-Pacific, etc.)"},
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
+                "operator": {
+                    "type": "string",
+                    "description": "Filter by operator (AWS, Google, Microsoft, Meta, etc.)",
+                },
+                "min_power_mw": {
+                    "type": "integer",
+                    "description": "Minimum power capacity in MW",
+                },
+                "region": {
+                    "type": "string",
+                    "description": "Filter by region (North America, Europe, Asia-Pacific, etc.)",
+                },
             },
         },
     ),
@@ -730,10 +1021,22 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
-                "status": {"type": "string", "description": "Filter by status: active, limited, planned, decommissioned"},
-                "spaceport_type": {"type": "string", "description": "Filter by type: orbital, suborbital"},
-                "operator": {"type": "string", "description": "Filter by operator (SpaceX, NASA, CNSA, Roscosmos, etc.)"},
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: active, limited, planned, decommissioned",
+                },
+                "spaceport_type": {
+                    "type": "string",
+                    "description": "Filter by type: orbital, suborbital",
+                },
+                "operator": {
+                    "type": "string",
+                    "description": "Filter by operator (SpaceX, NASA, CNSA, Roscosmos, etc.)",
+                },
             },
         },
     ),
@@ -743,9 +1046,18 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "mineral": {"type": "string", "description": "Filter by mineral (lithium, cobalt, rare_earths, nickel, copper, graphite, manganese, platinum_group, tungsten, uranium, tin, gallium, germanium)"},
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
-                "mineral_type": {"type": "string", "description": "Filter by type: battery, electronic, structural, energy, industrial, strategic"},
+                "mineral": {
+                    "type": "string",
+                    "description": "Filter by mineral (lithium, cobalt, rare_earths, nickel, copper, graphite, manganese, platinum_group, tungsten, uranium, tin, gallium, germanium)",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
+                "mineral_type": {
+                    "type": "string",
+                    "description": "Filter by type: battery, electronic, structural, energy, industrial, strategic",
+                },
                 "operator": {"type": "string", "description": "Filter by operator"},
             },
         },
@@ -756,9 +1068,18 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "tier": {"type": "string", "description": "Filter by tier: mega, major, emerging, frontier"},
-                "country": {"type": "string", "description": "Filter by country name or ISO-3 code"},
-                "currency": {"type": "string", "description": "Filter by currency (USD, EUR, GBP, JPY, CNY, etc.)"},
+                "tier": {
+                    "type": "string",
+                    "description": "Filter by tier: mega, major, emerging, frontier",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by country name or ISO-3 code",
+                },
+                "currency": {
+                    "type": "string",
+                    "description": "Filter by currency (USD, EUR, GBP, JPY, CNY, etc.)",
+                },
             },
         },
     ),
@@ -769,7 +1090,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "ISO-3 country code (USA, GBR, JPN, CHN, DEU, etc.)", "default": "USA"},
+                "country": {
+                    "type": "string",
+                    "description": "ISO-3 country code (USA, GBR, JPN, CHN, DEU, etc.)",
+                    "default": "USA",
+                },
             },
         },
     ),
@@ -796,7 +1121,11 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Number of stories (default 30, max 100)", "default": 30},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of stories (default 30, max 100)",
+                    "default": 30,
+                },
             },
         },
     ),
@@ -806,9 +1135,20 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "language": {"type": "string", "description": "Programming language filter (python, rust, typescript, etc.)"},
-                "since_days": {"type": "integer", "description": "Look back N days for new repos (default 7)", "default": 7},
-                "limit": {"type": "integer", "description": "Number of repos (default 25)", "default": 25},
+                "language": {
+                    "type": "string",
+                    "description": "Programming language filter (python, rust, typescript, etc.)",
+                },
+                "since_days": {
+                    "type": "integer",
+                    "description": "Look back N days for new repos (default 7)",
+                    "default": 7,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of repos (default 25)",
+                    "default": 25,
+                },
             },
         },
     ),
@@ -818,8 +1158,15 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "arXiv search query (default: cs.AI OR cs.LG OR cs.CL)"},
-                "limit": {"type": "integer", "description": "Number of papers (default 25)", "default": 25},
+                "query": {
+                    "type": "string",
+                    "description": "arXiv search query (default: cs.AI OR cs.LG OR cs.CL)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of papers (default 25)",
+                    "default": 25,
+                },
             },
         },
     ),
@@ -830,8 +1177,15 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "agency": {"type": "string", "description": "Filter by agency name substring"},
-                "limit": {"type": "integer", "description": "Number of agencies (default 25)", "default": 25},
+                "agency": {
+                    "type": "string",
+                    "description": "Filter by agency name substring",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of agencies (default 25)",
+                    "default": 25,
+                },
             },
         },
     ),
@@ -848,9 +1202,20 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "days": {"type": "integer", "description": "Look back N days (default 30)", "default": 30},
-                "category": {"type": "string", "description": "Filter by category: wildfires, severeStorms, volcanoes, floods, earthquakes, drought, seaLakeIce"},
-                "limit": {"type": "integer", "description": "Max events (default 50)", "default": 50},
+                "days": {
+                    "type": "integer",
+                    "description": "Look back N days (default 30)",
+                    "default": 30,
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Filter by category: wildfires, severeStorms, volcanoes, floods, earthquakes, drought, seaLakeIce",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max events (default 50)",
+                    "default": 50,
+                },
             },
         },
     ),
@@ -860,9 +1225,19 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "alert_level": {"type": "string", "description": "Filter by level: green, orange, red"},
-                "event_type": {"type": "string", "description": "Filter by type: EQ, FL, TC, DR, WF, VO"},
-                "limit": {"type": "integer", "description": "Max alerts (default 30)", "default": 30},
+                "alert_level": {
+                    "type": "string",
+                    "description": "Filter by level: green, orange, red",
+                },
+                "event_type": {
+                    "type": "string",
+                    "description": "Filter by type: EQ, FL, TC, DR, WF, VO",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max alerts (default 30)",
+                    "default": 30,
+                },
             },
         },
     ),
@@ -885,8 +1260,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "route_type": {"type": "string", "description": "Filter: chokepoint, canal, route"},
-                "country": {"type": "string", "description": "Filter by ISO-3 country code"},
+                "route_type": {
+                    "type": "string",
+                    "description": "Filter: chokepoint, canal, route",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by ISO-3 country code",
+                },
             },
         },
     ),
@@ -897,8 +1278,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "provider": {"type": "string", "description": "Filter: AWS, Azure, GCP"},
-                "country": {"type": "string", "description": "Filter by region name substring"},
+                "provider": {
+                    "type": "string",
+                    "description": "Filter: AWS, Azure, GCP",
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Filter by region name substring",
+                },
             },
         },
     ),
@@ -909,8 +1296,14 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "country": {"type": "string", "description": "Filter by ISO-3 country code"},
-                "min_rank": {"type": "integer", "description": "Only include centers ranked this or better"},
+                "country": {
+                    "type": "string",
+                    "description": "Filter by ISO-3 country code",
+                },
+                "min_rank": {
+                    "type": "integer",
+                    "description": "Only include centers ranked this or better",
+                },
             },
         },
     ),
@@ -938,10 +1331,193 @@ TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "category": {"type": "string", "description": "Webcam category (traffic, weather, landscape, etc.)", "default": "traffic"},
-                "limit": {"type": "integer", "description": "Max cameras to return (default 50)", "default": 50},
+                "category": {
+                    "type": "string",
+                    "description": "Webcam category (traffic, weather, landscape, etc.)",
+                    "default": "traffic",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max cameras to return (default 50)",
+                    "default": 50,
+                },
             },
         },
+    ),
+    # --- Forex (3 tools) ---
+    Tool(
+        name="intel_forex_rates",
+        description="Get latest foreign exchange rates from ECB via Frankfurter API. Optional: base currency (default USD), target symbols list.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string",
+                    "description": "Base currency code (default: USD)",
+                    "default": "USD",
+                },
+                "symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target currency codes (e.g., ['EUR', 'GBP', 'JPY'])",
+                },
+            },
+        },
+    ),
+    Tool(
+        name="intel_forex_timeseries",
+        description="Get historical FX rate timeseries with trend analysis. Optional: base, symbol, days.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string",
+                    "description": "Base currency (default: USD)",
+                    "default": "USD",
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Target currency (default: EUR)",
+                    "default": "EUR",
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days of history (default: 30)",
+                    "default": 30,
+                },
+            },
+        },
+    ),
+    Tool(
+        name="intel_major_crosses",
+        description="Get all 8 major FX currency pairs (EUR/USD, USD/JPY, GBP/USD, etc.) with cross rates and DXY proxy.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    # --- Bonds & Yields (2 tools) ---
+    Tool(
+        name="intel_yield_curve",
+        description="Get US Treasury yield curve (2Y-30Y maturities), 2s10s and 3m10y spreads, and inversion detection. Uses FRED or Yahoo Finance fallback.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="intel_bond_indices",
+        description="Get major bond ETF prices and performance: AGG (total bond), TLT (20Y+ Treasury), HYG (high yield), LQD (investment grade), TIP (TIPS).",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    # --- Earnings (2 tools) ---
+    Tool(
+        name="intel_earnings_calendar",
+        description="Get upcoming earnings announcements for top 20 mega-cap stocks (AAPL, MSFT, GOOGL, etc.) with EPS estimates and days until report.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "days_ahead": {
+                    "type": "integer",
+                    "description": "Days to look ahead for 'this_week' filter (default: 7)",
+                    "default": 7,
+                },
+            },
+        },
+    ),
+    Tool(
+        name="intel_earnings_surprise",
+        description="Get recent earnings surprises for a specific stock — past quarter actual vs estimate, surprise %, and forward estimates.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL')",
+                },
+            },
+            "required": ["symbol"],
+        },
+    ),
+    # --- SEC Filings (3 tools) ---
+    Tool(
+        name="intel_sec_filings",
+        description="Search SEC EDGAR filings via full-text search. Filter by form type (10-K, 10-Q, 8-K) and date range.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query (company name, keyword, etc.)",
+                },
+                "form_type": {
+                    "type": "string",
+                    "description": "Comma-separated form types (e.g., '10-K,10-Q,8-K')",
+                },
+                "date_range": {
+                    "type": "string",
+                    "description": "Date range as 'YYYY-MM-DD,YYYY-MM-DD' (default: last 30 days)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default: 25, max: 100)",
+                    "default": 25,
+                },
+            },
+        },
+    ),
+    Tool(
+        name="intel_company_filings",
+        description="Get recent SEC filings for a company by ticker symbol (10-K, 10-Q, 8-K). Resolves ticker to CIK automatically.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL')",
+                },
+                "form_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Form types to include (default: ['10-K', '10-Q', '8-K'])",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max filings (default: 10)",
+                    "default": 10,
+                },
+            },
+            "required": ["ticker"],
+        },
+    ),
+    Tool(
+        name="intel_recent_8k",
+        description="Get most recent 8-K filings (material corporate events: M&A, executive changes, earnings releases) across all companies.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Max filings (default: 25, max: 100)",
+                    "default": 25,
+                },
+            },
+        },
+    ),
+    # --- Company Enrichment (1 tool) ---
+    Tool(
+        name="intel_company_profile",
+        description="Get comprehensive company profile: stock quote, financials, sector/industry, recent news, SEC filings, and GitHub repos (for tech companies). Accepts ticker or company name.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Ticker symbol (e.g., 'AAPL') or company name",
+                },
+            },
+            "required": ["query"],
+        },
+    ),
+    # --- Macro Composite (1 tool) ---
+    Tool(
+        name="intel_macro_composite",
+        description="Get weighted macro market composite score (0-100) synthesizing Fear & Greed, VIX, sector breadth, DXY, BTC technicals, and 10Y yield into an actionable verdict (RISK_ON / CONSTRUCTIVE / NEUTRAL / CAUTIOUS / STRONG_CAUTION).",
+        inputSchema={"type": "object", "properties": {}},
     ),
     # --- System (1 tool) ---
     Tool(
@@ -956,14 +1532,19 @@ TOOLS: list[Tool] = [
 # Tool dispatch
 # ---------------------------------------------------------------------------
 
+
 async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
     """Route tool call to the appropriate source function."""
     match name:
         # Markets
         case "intel_market_quotes":
-            return await markets.fetch_market_quotes(fetcher, symbols=arguments.get("symbols"))
+            return await markets.fetch_market_quotes(
+                fetcher, symbols=arguments.get("symbols")
+            )
         case "intel_crypto_quotes":
-            return await markets.fetch_crypto_quotes(fetcher, limit=arguments.get("limit", 20))
+            return await markets.fetch_crypto_quotes(
+                fetcher, limit=arguments.get("limit", 20)
+            )
         case "intel_stablecoin_status":
             return await markets.fetch_stablecoin_status(fetcher)
         case "intel_etf_flows":
@@ -1000,7 +1581,9 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 limit=arguments.get("limit", 50),
             )
         case "intel_wildfires":
-            return await wildfire.fetch_wildfires(fetcher, region=arguments.get("region"))
+            return await wildfire.fetch_wildfires(
+                fetcher, region=arguments.get("region")
+            )
 
         # Conflict
         case "intel_acled_events":
@@ -1018,16 +1601,21 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             )
         case "intel_humanitarian_summary":
             return await conflict.fetch_humanitarian_summary(
-                fetcher, country=arguments.get("country"),
+                fetcher,
+                country=arguments.get("country"),
             )
 
         # Military
         case "intel_military_flights":
-            return await military.fetch_military_flights(fetcher, bbox=arguments.get("bbox"))
+            return await military.fetch_military_flights(
+                fetcher, bbox=arguments.get("bbox")
+            )
         case "intel_theater_posture":
             return await military.fetch_theater_posture(fetcher)
         case "intel_aircraft_details":
-            return await military.fetch_aircraft_details(fetcher, icao24=arguments["icao24"])
+            return await military.fetch_aircraft_details(
+                fetcher, icao24=arguments["icao24"]
+            )
 
         # Infrastructure
         case "intel_internet_outages":
@@ -1037,19 +1625,27 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 
         # Maritime
         case "intel_nav_warnings":
-            return await maritime.fetch_nav_warnings(fetcher, navarea=arguments.get("navarea"))
+            return await maritime.fetch_nav_warnings(
+                fetcher, navarea=arguments.get("navarea")
+            )
 
         # Climate
         case "intel_climate_anomalies":
-            return await climate.fetch_climate_anomalies(fetcher, zones=arguments.get("zones"))
+            return await climate.fetch_climate_anomalies(
+                fetcher, zones=arguments.get("zones")
+            )
 
         # Prediction
         case "intel_prediction_markets":
-            return await prediction.fetch_prediction_markets(fetcher, limit=arguments.get("limit", 20))
+            return await prediction.fetch_prediction_markets(
+                fetcher, limit=arguments.get("limit", 20)
+            )
 
         # Displacement
         case "intel_displacement_summary":
-            return await displacement.fetch_displacement_summary(fetcher, year=arguments.get("year"))
+            return await displacement.fetch_displacement_summary(
+                fetcher, year=arguments.get("year")
+            )
 
         # Aviation
         case "intel_airport_delays":
@@ -1057,7 +1653,9 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 
         # Cyber
         case "intel_cyber_threats":
-            return await cyber.fetch_cyber_threats(fetcher, limit=arguments.get("limit", 50))
+            return await cyber.fetch_cyber_threats(
+                fetcher, limit=arguments.get("limit", 50)
+            )
 
         # News
         case "intel_news_feed":
@@ -1067,7 +1665,9 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 limit=arguments.get("limit", 50),
             )
         case "intel_trending_keywords":
-            return await news.fetch_trending_keywords(fetcher, min_count=arguments.get("min_count", 3))
+            return await news.fetch_trending_keywords(
+                fetcher, min_count=arguments.get("min_count", 3)
+            )
         case "intel_gdelt_search":
             return await news.fetch_gdelt_search(
                 fetcher,
@@ -1078,14 +1678,23 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 
         # Intelligence
         case "intel_country_brief":
-            return await intelligence.fetch_country_brief(fetcher, country_code=arguments.get("country_code", "US"))
+            return await intelligence.fetch_country_brief(
+                fetcher, country_code=arguments.get("country_code", "US")
+            )
         case "intel_country_dossier":
             from .analysis.dossier import fetch_country_dossier
-            return await fetch_country_dossier(fetcher, country=arguments.get("country", "US"))
+
+            return await fetch_country_dossier(
+                fetcher, country=arguments.get("country", "US")
+            )
         case "intel_risk_scores":
-            return await intelligence.fetch_risk_scores(fetcher, limit=arguments.get("limit", 20))
+            return await intelligence.fetch_risk_scores(
+                fetcher, limit=arguments.get("limit", 20)
+            )
         case "intel_instability_index":
-            return await intelligence.fetch_instability_index(fetcher, country_code=arguments.get("country_code"))
+            return await intelligence.fetch_instability_index(
+                fetcher, country_code=arguments.get("country_code")
+            )
         case "intel_signal_convergence":
             return await intelligence.fetch_signal_convergence(
                 fetcher,
@@ -1096,7 +1705,9 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         case "intel_focal_points":
             return await intelligence.fetch_focal_points(fetcher)
         case "intel_signal_summary":
-            return await intelligence.fetch_signal_summary(fetcher, country=arguments.get("country"))
+            return await intelligence.fetch_signal_summary(
+                fetcher, country=arguments.get("country")
+            )
         case "intel_temporal_anomalies":
             return await intelligence.fetch_temporal_anomalies(fetcher)
         case "intel_unrest_events":
@@ -1114,7 +1725,8 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             return await intelligence.fetch_vessel_snapshot(fetcher)
         case "intel_cascade_analysis":
             return await intelligence.fetch_cascade_analysis(
-                fetcher, corridor=arguments.get("corridor"),
+                fetcher,
+                corridor=arguments.get("corridor"),
             )
 
         # Space Weather
@@ -1123,11 +1735,15 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 
         # AI Watch
         case "intel_ai_releases":
-            return await ai_watch.fetch_ai_watch(fetcher, limit=arguments.get("limit", 50))
+            return await ai_watch.fetch_ai_watch(
+                fetcher, limit=arguments.get("limit", 50)
+            )
 
         # Health
         case "intel_disease_outbreaks":
-            return await health.fetch_disease_outbreaks(fetcher, limit=arguments.get("limit", 50))
+            return await health.fetch_disease_outbreaks(
+                fetcher, limit=arguments.get("limit", 50)
+            )
 
         # Sanctions
         case "intel_sanctions_search":
@@ -1142,7 +1758,8 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Elections
         case "intel_election_calendar":
             return await elections.fetch_election_calendar(
-                fetcher, country=arguments.get("country"),
+                fetcher,
+                country=arguments.get("country"),
             )
 
         # Shipping
@@ -1152,30 +1769,34 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Social
         case "intel_social_signals":
             return await social.fetch_social_signals(
-                fetcher, limit=arguments.get("limit", 25),
+                fetcher,
+                limit=arguments.get("limit", 25),
             )
 
         # Nuclear
         case "intel_nuclear_monitor":
             return await nuclear.fetch_nuclear_monitor(
-                fetcher, hours=arguments.get("hours", 72),
+                fetcher,
+                hours=arguments.get("hours", 72),
             )
 
         # Alert Digest
         case "intel_alert_digest":
             from .analysis.alerts import fetch_alert_digest
+
             return await fetch_alert_digest(fetcher)
 
         # Weekly Trends
         case "intel_weekly_trends":
             from .analysis.alerts import fetch_weekly_trends
-            return await fetch_weekly_trends(fetcher)
 
+            return await fetch_weekly_trends(fetcher)
 
         # Service Status
         case "intel_service_status":
             return await service_status.fetch_service_status(
-                fetcher, provider=arguments.get("provider"),
+                fetcher,
+                provider=arguments.get("provider"),
             )
 
         # Geospatial datasets
@@ -1206,15 +1827,19 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Strategic Synthesis
         case "intel_strategic_posture":
             from .analysis.posture import fetch_strategic_posture
+
             return await fetch_strategic_posture(fetcher)
         case "intel_world_brief":
             from .analysis.world_brief import fetch_world_brief
+
             return await fetch_world_brief(fetcher)
         case "intel_fleet_report":
             from .sources.fleet import fetch_fleet_report
+
             return await fetch_fleet_report(fetcher)
         case "intel_population_exposure":
             from .analysis.exposure import fetch_population_exposure
+
             return await fetch_population_exposure(
                 fetcher,
                 radius_km=arguments.get("radius_km", 200),
@@ -1260,19 +1885,22 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Markets Extended
         case "intel_country_stocks":
             return await markets.fetch_country_stocks(
-                fetcher, country=arguments.get("country", "USA"),
+                fetcher,
+                country=arguments.get("country", "USA"),
             )
 
         # Military Extended
         case "intel_aircraft_batch":
             return await military.fetch_aircraft_details_batch(
-                fetcher, icao24_list=arguments["icao24_list"],
+                fetcher,
+                icao24_list=arguments["icao24_list"],
             )
 
         # Tech & Science
         case "intel_hacker_news":
             return await hacker_news.fetch_hacker_news(
-                fetcher, limit=arguments.get("limit", 30),
+                fetcher,
+                limit=arguments.get("limit", 30),
             )
         case "intel_trending_repos":
             return await github_trending.fetch_trending_repos(
@@ -1348,12 +1976,15 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # NLP Intelligence
         case "intel_extract_entities":
             from .analysis.entities import fetch_entity_extraction
+
             return await fetch_entity_extraction(fetcher, text=arguments.get("text"))
         case "intel_classify_event":
             from .analysis.classifier import fetch_classify_event
+
             return await fetch_classify_event(fetcher, text=arguments["text"])
         case "intel_news_clusters":
             from .analysis.clustering import fetch_news_clusters
+
             return await fetch_news_clusters(
                 fetcher,
                 category=arguments.get("category"),
@@ -1362,6 +1993,7 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             )
         case "intel_keyword_spikes":
             from .analysis.spikes import fetch_keyword_spikes
+
             return await fetch_keyword_spikes(
                 fetcher,
                 min_count=arguments.get("min_count", 3),
@@ -1371,9 +2003,11 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Traffic
         case "intel_traffic_flow":
             from .sources.traffic import fetch_traffic_flow
+
             return await fetch_traffic_flow(fetcher)
         case "intel_traffic_incidents":
             from .sources.traffic import fetch_traffic_incidents
+
             return await fetch_traffic_incidents(fetcher)
 
         # Aviation domestic
@@ -1383,11 +2017,94 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         # Webcams
         case "intel_webcams":
             from .sources.webcams import fetch_webcams
+
             return await fetch_webcams(
                 fetcher,
                 category=arguments.get("category", "traffic"),
                 limit=arguments.get("limit", 50),
             )
+
+        # Forex
+        case "intel_forex_rates":
+            from .sources.forex import fetch_forex_rates
+
+            return await fetch_forex_rates(
+                fetcher,
+                base=arguments.get("base", "USD"),
+                symbols=arguments.get("symbols"),
+            )
+        case "intel_forex_timeseries":
+            from .sources.forex import fetch_forex_timeseries
+
+            return await fetch_forex_timeseries(
+                fetcher,
+                base=arguments.get("base", "USD"),
+                symbol=arguments.get("symbol", "EUR"),
+                days=arguments.get("days", 30),
+            )
+        case "intel_major_crosses":
+            from .sources.forex import fetch_major_crosses
+
+            return await fetch_major_crosses(fetcher)
+
+        # Bonds & Yields
+        case "intel_yield_curve":
+            from .sources.bonds import fetch_yield_curve
+
+            return await fetch_yield_curve(fetcher)
+        case "intel_bond_indices":
+            from .sources.bonds import fetch_bond_indices
+
+            return await fetch_bond_indices(fetcher)
+
+        # Earnings
+        case "intel_earnings_calendar":
+            from .sources.earnings import fetch_earnings_calendar
+
+            return await fetch_earnings_calendar(
+                fetcher, days_ahead=arguments.get("days_ahead", 7)
+            )
+        case "intel_earnings_surprise":
+            from .sources.earnings import fetch_earnings_surprise
+
+            return await fetch_earnings_surprise(fetcher, symbol=arguments["symbol"])
+
+        # SEC Filings
+        case "intel_sec_filings":
+            from .sources.sec_edgar import fetch_sec_filings
+
+            return await fetch_sec_filings(
+                fetcher,
+                query=arguments.get("query"),
+                form_type=arguments.get("form_type"),
+                date_range=arguments.get("date_range"),
+                limit=arguments.get("limit", 25),
+            )
+        case "intel_company_filings":
+            from .sources.sec_edgar import fetch_company_filings
+
+            return await fetch_company_filings(
+                fetcher,
+                ticker=arguments["ticker"],
+                form_types=arguments.get("form_types"),
+                limit=arguments.get("limit", 10),
+            )
+        case "intel_recent_8k":
+            from .sources.sec_edgar import fetch_recent_8k
+
+            return await fetch_recent_8k(fetcher, limit=arguments.get("limit", 25))
+
+        # Company Enrichment
+        case "intel_company_profile":
+            from .analysis.company import fetch_company_profile
+
+            return await fetch_company_profile(fetcher, query=arguments["query"])
+
+        # Macro Composite
+        case "intel_macro_composite":
+            from .analysis.macro_composite import fetch_macro_composite
+
+            return await fetch_macro_composite(fetcher)
 
         # System
         case "intel_status":
@@ -1396,7 +2113,12 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                 "cache": cache.stats(),
                 "cache_freshness": cache.freshness(),
                 "sources": {
-                    "markets": ["yahoo-finance", "coingecko", "alternative-me", "mempool"],
+                    "markets": [
+                        "yahoo-finance",
+                        "coingecko",
+                        "alternative-me",
+                        "mempool",
+                    ],
                     "economic": ["eia", "fred", "world-bank"],
                     "natural": ["usgs", "nasa-firms"],
                     "conflict": ["acled", "ucdp", "hdx"],
@@ -1419,12 +2141,39 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
                     "social": ["reddit-public"],
                     "nuclear": ["usgs-nuclear-monitor"],
                     "service_status": ["aws", "azure", "gcp", "cloudflare", "github"],
-                    "geospatial": ["static-datasets (bases, ports, pipelines, nuclear, cables, datacenters, spaceports, minerals, exchanges, trade-routes, cloud-regions, financial-centers)"],
-                    "nlp": ["regex-ner", "keyword-classifier", "jaccard-clustering", "keyword-spike-detector"],
-                    "synthesis": ["strategic-posture", "world-brief", "fleet-report", "population-exposure"],
+                    "geospatial": [
+                        "static-datasets (bases, ports, pipelines, nuclear, cables, datacenters, spaceports, minerals, exchanges, trade-routes, cloud-regions, financial-centers)"
+                    ],
+                    "nlp": [
+                        "regex-ner",
+                        "keyword-classifier",
+                        "jaccard-clustering",
+                        "keyword-spike-detector",
+                    ],
+                    "synthesis": [
+                        "strategic-posture",
+                        "world-brief",
+                        "fleet-report",
+                        "population-exposure",
+                    ],
                     "tech": ["hackernews", "github", "arxiv"],
                     "government": ["usaspending-gov"],
                     "environmental": ["eonet", "gdacs"],
+                    "forex": ["ecb-frankfurter"],
+                    "bonds": ["fred", "yahoo-finance"],
+                    "earnings": ["yahoo-finance"],
+                    "sec_filings": ["sec-edgar"],
+                    "company_enrichment": [
+                        "yahoo-finance",
+                        "gdelt",
+                        "sec-edgar",
+                        "github",
+                    ],
+                    "macro_composite": [
+                        "yahoo-finance",
+                        "coingecko",
+                        "alternative-me",
+                    ],
                 },
             }
 
@@ -1435,6 +2184,7 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 # MCP handlers
 # ---------------------------------------------------------------------------
+
 
 @server.list_tools()
 async def list_tools() -> list[Tool]:
@@ -1453,10 +2203,13 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 async def _run() -> None:
     logger.info("World Intelligence MCP Server starting (%d tools)", len(TOOLS))
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
+        await server.run(
+            read_stream, write_stream, server.create_initialization_options()
+        )
 
 
 def run() -> None:

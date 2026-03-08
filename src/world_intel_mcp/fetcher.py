@@ -25,18 +25,19 @@ _YAHOO_MIN_INTERVAL = 0.6  # seconds
 # Per-source rate limits (min seconds between calls).
 # Sources not listed here have no enforced limit.
 _SOURCE_RATE_LIMITS: dict[str, float] = {
-    "yahoo-finance": 0.6,       # unofficial — ~100 req/min safe
-    "opensky": 6.0,             # free tier: 10 req/min
-    "coingecko": 2.0,           # free tier: 30 calls/min
-    "cloudflare-radar": 3.0,    # 20 req/min
-    "reddit": 1.5,              # ~60 req/min (be conservative)
-    "nasa-firms": 2.0,          # API key: ~1000 req/day
-    "adsblol": 5.0,             # community API — be very polite
-    "polymarket": 1.0,          # be polite
-    "faa": 1.0,                 # govt API
-    "usgs": 1.0,                # generous but be polite
-    "acled": 2.0,               # API key based
-    "nga": 2.0,                 # govt API
+    "yahoo-finance": 0.6,  # unofficial — ~100 req/min safe
+    "opensky": 6.0,  # free tier: 10 req/min
+    "coingecko": 2.0,  # free tier: 30 calls/min
+    "cloudflare-radar": 3.0,  # 20 req/min
+    "reddit": 1.5,  # ~60 req/min (be conservative)
+    "nasa-firms": 2.0,  # API key: ~1000 req/day
+    "adsblol": 5.0,  # community API — be very polite
+    "polymarket": 1.0,  # be polite
+    "faa": 1.0,  # govt API
+    "usgs": 1.0,  # generous but be polite
+    "acled": 2.0,  # API key based
+    "nga": 2.0,  # govt API
+    "sec-edgar": 1.0,  # SEC EDGAR — be polite
 }
 _source_locks: dict[str, asyncio.Lock] = {}
 _source_last_call: dict[str, float] = {}
@@ -138,8 +139,14 @@ class Fetcher:
                 last_error = exc
                 if attempt < self.max_retries:
                     wait = 1.0 * (attempt + 1)
-                    logger.debug("Retry %d/%d for %s (%s), waiting %.1fs",
-                                 attempt + 1, self.max_retries, source, exc, wait)
+                    logger.debug(
+                        "Retry %d/%d for %s (%s), waiting %.1fs",
+                        attempt + 1,
+                        self.max_retries,
+                        source,
+                        exc,
+                        wait,
+                    )
                     await asyncio.sleep(wait)
 
         # All retries failed — try stale cache before giving up
