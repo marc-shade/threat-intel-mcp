@@ -25,37 +25,36 @@ Built for AI agents that need world awareness: market conditions, geopolitical r
 | **Macro Composite** | 1 | Weighted 6-signal market verdict (Fear&Greed, VIX, sectors, DXY, BTC, yields) |
 | **Economic Indicators** | 3 | EIA energy, FRED macro, World Bank |
 | **Central Banks** | 1 | 8 central bank policy rates |
+| **BTC Technicals** | 1 | SMA 50/200, golden/death cross, Mayer Multiple |
 | **Natural Disasters** | 2 | USGS earthquakes, NASA FIRMS wildfires |
 | **Environmental** | 2 | NASA EONET, GDACS disaster alerts |
+| **Climate** | 1 | Open-Meteo temperature/precipitation anomalies |
 | **Conflict & Security** | 4 | ACLED events, UCDP, unrest detection, humanitarian data |
 | **Military & Defense** | 6 | adsb.lol, OpenSky, hexdb.io, surge detection, theater posture, aircraft batch |
 | **Infrastructure** | 4 | Cloudflare Radar, submarine cables, cascade analysis, cloud status |
 | **Maritime** | 2 | NGA navigation warnings, vessel snapshots |
-| **Climate** | 1 | Open-Meteo climate anomalies |
+| **Aviation** | 2 | FAA airport delays, domestic flight snapshot |
 | **News & Media** | 3 | 80+ RSS feeds (4-tier), GDELT, trending keywords |
 | **Intelligence Analysis** | 8 | Signal convergence, focal points, instability index, risk scores, escalation |
-| **Prediction Markets** | 1 | Polymarket event contracts |
-| **Displacement** | 1 | UNHCR refugee/IDP data |
-| **Aviation** | 3 | FAA airport delays, domestic flight snapshot, aircraft batch lookup |
-| **Cyber Threats** | 1 | URLhaus, Feodotracker, CISA KEV, SANS |
-| **Space Weather** | 1 | NOAA SWPC (Kp index, solar flares, alerts) |
-| **AI/AGI Watch** | 1 | arXiv cs.AI/LG/CL, HuggingFace, AI lab tracking |
-| **Health** | 1 | WHO DON, ProMED, CIDRAP disease outbreaks |
-| **Sanctions** | 1 | US Treasury OFAC SDN list |
-| **Elections** | 1 | Global election calendar with risk scoring |
-| **Shipping** | 1 | Dry bulk shipping stress index |
-| **Social** | 1 | Reddit geopolitical discussion velocity |
-| **Nuclear** | 1 | USGS seismic monitoring near nuclear test sites |
-| **Tech** | 3 | Hacker News, GitHub trending repos, arXiv papers |
-| **Government** | 1 | USAspending.gov federal contracts |
-| **Geospatial** | 10 | Military bases, ports, pipelines, nuclear facilities, cables, datacenters, spaceports, minerals, exchanges, trade routes, cloud regions, financial centers |
 | **NLP Intelligence** | 4 | Entity extraction, event classification, news clustering, keyword spikes |
 | **Strategic Synthesis** | 4 | Strategic posture, world brief, fleet report, population exposure |
-| **Cross-Domain** | 2 | Alert digest, weekly trends |
-
-| **Vector Search** | 5 | Qdrant semantic search, similarity, timeline, collection |
+| **Geospatial** | 11 | Military bases, ports, pipelines, nuclear facilities, cables, datacenters, spaceports, minerals, exchanges, trade routes, cloud regions |
+| **AI & Technology** | 4 | arXiv papers, HuggingFace models, Hacker News, GitHub trending |
+| **Cyber Threats** | 1 | URLhaus, Feodotracker, CISA KEV, SANS |
+| **Health** | 1 | WHO DON, ProMED, CIDRAP disease outbreaks |
+| **Space Weather** | 1 | NOAA SWPC (Kp index, solar flares, alerts) |
+| **Social & Sanctions** | 3 | Reddit velocity, OFAC SDN list, nuclear test site monitoring |
+| **Country Intelligence** | 3 | Country brief, country stocks, financial centers |
+| **Prediction Markets** | 1 | Polymarket event contracts |
+| **Elections** | 1 | Global election calendar with risk scoring |
+| **Displacement** | 1 | UNHCR refugee/IDP data |
+| **Shipping** | 1 | Dry bulk shipping stress index |
+| **Government** | 1 | USAspending.gov federal contracts |
+| **Traffic** | 2 | Road traffic flow, real-time incidents |
+| **Cross-Domain Alerts** | 2 | Alert digest, weekly trends |
+| **Monitoring** | 2 | Webcams, server health/status |
+| **Vector Search** | 5 | Qdrant semantic search, similarity, timeline, stats |
 | **Cross-Domain Analytics** | 3 | Correlation, domain summary, trend detection |
-| **Data Collection** | 1 | On-demand collector trigger |
 
 **Total: 109 tools** across 30+ intelligence domains.
 
@@ -118,10 +117,10 @@ intel status               # cache + circuit breaker health
 ## Architecture
 
 ```
-server.py (MCP stdio)  ─┐                                              ┌─ VectorStore (Qdrant)
-cli.py (Click CLI)      ├─> sources/*.py ─> Fetcher ─> CircuitBreaker ─┤
-dashboard/app.py (SSE)  ─┘    analysis/*.py                            └─ Cache (SQLite)
-collector.py (daemon)  ──┘
+server.py     (MCP stdio) ─┐                                               ┌─ VectorStore (Qdrant)
+cli.py        (Click CLI)  ├─> sources/*.py ─> Fetcher ─> CircuitBreaker ─┤
+dashboard.py  (SSE)        │    analysis/*.py                              └─ Cache (SQLite)
+collector.py  (daemon)    ─┘
 ```
 
 - **Fetcher**: Centralized async HTTP client (httpx). Retries, per-source rate limiting, stale-data fallback. Auto-stores results in vector store on fresh fetches.
@@ -294,34 +293,99 @@ collector.py (daemon)  ──┘
 | `intel_fleet_report` | Naval fleet activity report with readiness scoring |
 | `intel_population_exposure` | Population at risk near active events (105-city dataset) |
 
-### Other Domains
+### Climate (1)
+| Tool | Description |
+|------|-------------|
+| `intel_climate_anomalies` | Open-Meteo temperature/precipitation anomalies |
+
+### Prediction Markets (1)
 | Tool | Description |
 |------|-------------|
 | `intel_prediction_markets` | Polymarket prediction contracts |
+
+### Elections (1)
+| Tool | Description |
+|------|-------------|
 | `intel_election_calendar` | Global election calendar with risk scoring |
+
+### Displacement (1)
+| Tool | Description |
+|------|-------------|
 | `intel_displacement_summary` | UNHCR refugee/IDP statistics |
+
+### Aviation (2)
+| Tool | Description |
+|------|-------------|
 | `intel_airport_delays` | FAA airport delay status |
 | `intel_aviation_domestic` | Global air traffic snapshot from OpenSky |
+
+### Cyber Threats (1)
+| Tool | Description |
+|------|-------------|
 | `intel_cyber_threats` | Aggregated cyber intel (URLhaus, CISA KEV, SANS) |
+
+### Space Weather (1)
+| Tool | Description |
+|------|-------------|
 | `intel_space_weather` | Solar activity (Kp index, X-ray flux, SWPC alerts) |
+
+### AI & Technology (4)
+| Tool | Description |
+|------|-------------|
 | `intel_ai_releases` | arXiv AI papers, HuggingFace models |
-| `intel_disease_outbreaks` | WHO DON, ProMED, CIDRAP outbreaks |
-| `intel_social_signals` | Reddit geopolitical discussion velocity |
-| `intel_sanctions_search` | OFAC SDN list search |
-| `intel_shipping_index` | Dry bulk shipping stress index |
-| `intel_nuclear_monitor` | Seismic monitoring near nuclear test sites |
 | `intel_hacker_news` | Hacker News top stories |
 | `intel_trending_repos` | GitHub trending repositories |
 | `intel_arxiv_papers` | arXiv paper search |
+
+### Health (1)
+| Tool | Description |
+|------|-------------|
+| `intel_disease_outbreaks` | WHO DON, ProMED, CIDRAP outbreaks |
+
+### Social & Sanctions (3)
+| Tool | Description |
+|------|-------------|
+| `intel_social_signals` | Reddit geopolitical discussion velocity |
+| `intel_sanctions_search` | OFAC SDN list search |
+| `intel_nuclear_monitor` | Seismic monitoring near nuclear test sites |
+
+### Shipping & Trade (1)
+| Tool | Description |
+|------|-------------|
+| `intel_shipping_index` | Dry bulk shipping stress index |
+
+### Government (1)
+| Tool | Description |
+|------|-------------|
 | `intel_usa_spending` | USAspending.gov federal contracts |
+
+### Country Intelligence (3)
+| Tool | Description |
+|------|-------------|
 | `intel_country_brief` | Quick country situation summary |
 | `intel_country_stocks` | Stock exchanges and listings by country |
-| `intel_cloud_regions` | Cloud provider regions worldwide |
 | `intel_financial_centers` | Global financial centers ranking |
-| `intel_alert_digest` | Cross-domain alert aggregation |
-| `intel_weekly_trends` | Weekly trend analysis |
+
+### Extended Geospatial (1)
+| Tool | Description |
+|------|-------------|
+| `intel_cloud_regions` | Cloud provider regions worldwide |
+
+### Traffic (2)
+| Tool | Description |
+|------|-------------|
 | `intel_traffic_flow` | Road traffic flow data |
 | `intel_traffic_incidents` | Real-time traffic incidents |
+
+### Cross-Domain Alerts (2)
+| Tool | Description |
+|------|-------------|
+| `intel_alert_digest` | Cross-domain alert aggregation |
+| `intel_weekly_trends` | Weekly trend analysis |
+
+### Monitoring (2)
+| Tool | Description |
+|------|-------------|
 | `intel_webcams` | Public webcam locations and live previews |
 | `intel_status` | Server health, cache stats, circuit breaker status |
 
