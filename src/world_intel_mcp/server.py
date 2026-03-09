@@ -167,10 +167,33 @@ TOOLS: list[Tool] = [
         description="Get commodity futures quotes: gold, silver, crude oil (WTI & Brent), natural gas, corn, wheat, soybeans from Yahoo Finance.",
         inputSchema={"type": "object", "properties": {}},
     ),
-    # --- Economic (3 tools) ---
+    # --- Economic (6 tools) ---
+    Tool(
+        name="intel_gas_prices",
+        description="Get today's US retail gasoline and diesel prices ($/gallon) from AAA — daily national averages for regular, mid-grade, premium, diesel, E85. Includes day-over-day, week, month, year deltas plus per-state prices. No API key required.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="intel_residential_natgas",
+        description="Get US residential natural gas prices ($/thousand cubic feet) — monthly average. Requires EIA_API_KEY.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="intel_electricity_rates",
+        description="Get US electricity retail rates (cents/kWh) by sector (residential, commercial, industrial). Optionally filter by state. Requires EIA_API_KEY.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "state": {
+                    "type": "string",
+                    "description": "2-letter US state code (e.g., 'CA', 'TX'). Defaults to nationwide.",
+                },
+            },
+        },
+    ),
     Tool(
         name="intel_energy_prices",
-        description="Get crude oil (Brent, WTI) and natural gas prices from EIA. Requires EIA_API_KEY.",
+        description="Get crude oil (Brent, WTI) and natural gas futures prices from EIA. Requires EIA_API_KEY.",
         inputSchema={"type": "object", "properties": {}},
     ),
     Tool(
@@ -1769,6 +1792,15 @@ async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
             return await markets.fetch_commodity_quotes(fetcher)
 
         # Economic
+        case "intel_gas_prices":
+            return await economic.fetch_gas_prices(fetcher)
+        case "intel_residential_natgas":
+            return await economic.fetch_residential_natgas_prices(fetcher)
+        case "intel_electricity_rates":
+            return await economic.fetch_electricity_rates(
+                fetcher,
+                state=arguments.get("state"),
+            )
         case "intel_energy_prices":
             return await economic.fetch_energy_prices(fetcher)
         case "intel_fred_series":

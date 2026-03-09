@@ -1,8 +1,7 @@
 """Tests for source modules — uses respx to mock HTTP calls."""
 
-import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -37,14 +36,16 @@ async def test_fetch_market_quotes(fetcher: Fetcher) -> None:
     # Mock Yahoo Finance v8 chart response for ^GSPC
     chart_response = {
         "chart": {
-            "result": [{
-                "meta": {
-                    "symbol": "^GSPC",
-                    "regularMarketPrice": 5123.45,
-                    "regularMarketChangePercent": 0.42,
-                    "currency": "USD",
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "^GSPC",
+                        "regularMarketPrice": 5123.45,
+                        "regularMarketChangePercent": 0.42,
+                        "currency": "USD",
+                    }
                 }
-            }]
+            ]
         }
     }
 
@@ -149,6 +150,7 @@ async def test_fetch_wildfires_no_api_key(fetcher: Fetcher) -> None:
     with patch.dict("os.environ", {}, clear=False):
         # Remove the key if present
         import os
+
         os.environ.pop("NASA_FIRMS_API_KEY", None)
         result = await fetch_wildfires(fetcher, api_key=None)
 
@@ -189,6 +191,7 @@ async def test_fetch_fred_series_no_key(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.economic import fetch_fred_series
 
     import os
+
     os.environ.pop("FRED_API_KEY", None)
     result = await fetch_fred_series(fetcher, series_id="UNRATE", api_key=None)
     assert "error" in result
@@ -202,8 +205,16 @@ async def test_fetch_world_bank_indicators(fetcher: Fetcher) -> None:
     wb_response = [
         {"page": 1, "pages": 1, "per_page": 5, "total": 2},
         [
-            {"indicator": {"id": "NY.GDP.MKTP.CD", "value": "GDP"}, "date": "2023", "value": 25000000000000},
-            {"indicator": {"id": "NY.GDP.MKTP.CD", "value": "GDP"}, "date": "2022", "value": 24000000000000},
+            {
+                "indicator": {"id": "NY.GDP.MKTP.CD", "value": "GDP"},
+                "date": "2023",
+                "value": 25000000000000,
+            },
+            {
+                "indicator": {"id": "NY.GDP.MKTP.CD", "value": "GDP"},
+                "date": "2022",
+                "value": 24000000000000,
+            },
         ],
     ]
 
@@ -211,11 +222,117 @@ async def test_fetch_world_bank_indicators(fetcher: Fetcher) -> None:
         return_value=httpx.Response(200, json=wb_response)
     )
 
-    result = await fetch_world_bank_indicators(fetcher, country="USA", indicators=["NY.GDP.MKTP.CD"])
+    result = await fetch_world_bank_indicators(
+        fetcher, country="USA", indicators=["NY.GDP.MKTP.CD"]
+    )
     assert "indicators" in result
     assert len(result["indicators"]) == 1
     assert result["indicators"][0]["id"] == "NY.GDP.MKTP.CD"
     assert result["source"] == "world-bank"
+
+
+# ---------------------------------------------------------------------------
+# Gas prices, natural gas, electricity
+# ---------------------------------------------------------------------------
+
+
+_AAA_HTML = """<html><body>
+<table><thead><tr><th></th><th>Regular</th><th>Mid-Grade</th><th>Premium</th>
+<th>Diesel</th><th>E85</th></tr></thead><tbody>
+<tr><td>Current Avg.</td><td>$3.450</td><td>$3.942</td><td>$4.306</td><td>$4.595</td><td>$2.762</td></tr>
+<tr><td>Yesterday Avg.</td><td>$3.413</td><td>$3.897</td><td>$4.260</td><td>$4.510</td><td>$2.717</td></tr>
+<tr><td>Week Ago Avg.</td><td>$2.984</td><td>$3.482</td><td>$3.851</td><td>$3.761</td><td>$2.319</td></tr>
+<tr><td>Month Ago Avg.</td><td>$2.897</td><td>$3.402</td><td>$3.765</td><td>$3.644</td><td>$2.306</td></tr>
+<tr><td>Year Ago Avg.</td><td>$3.095</td><td>$3.572</td><td>$3.925</td><td>$3.640</td><td>$2.523</td></tr>
+</tbody></table></body></html>"""
+
+
+@pytest.mark.asyncio
+async def test_fetch_gas_prices(
+    fetcher: Fetcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from world_intel_mcp.sources import economic
+
+    monkeypatch.setattr(economic, "_fetch_aaa_html", lambda: _AAA_HTML)
+
+    result = await economic.fetch_gas_prices(fetcher)
+    assert result["source"] == "aaa"
+    assert result["region"] == "US"
+    assert "regular" in result["prices"]
+    assert result["prices"]["regular"]["price_per_gallon"] == 3.450
+    assert "diesel" in result["prices"]
+    assert result["prices"]["diesel"]["price_per_gallon"] == 4.595
+    # Day-over-day delta: 3.450 - 3.413 = 0.037
+    assert result["prices"]["regular"]["change"] == 0.037
+    assert result["prices"]["regular"]["change_pct"] is not None
+    # Week-over-week comparison
+    assert result["prices"]["regular"]["week_ago_pct"] is not None
+
+
+@pytest.mark.asyncio
+async def test_fetch_gas_prices_no_data(
+    fetcher: Fetcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from world_intel_mcp.sources import economic
+
+    monkeypatch.setattr(economic, "_fetch_aaa_html", lambda: "<html>maintenance</html>")
+
+    result = await economic.fetch_gas_prices(fetcher)
+    assert result["source"] == "aaa"
+    assert result["prices"] == {}
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_residential_natgas(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.economic import fetch_residential_natgas_prices
+
+    eia_response = {
+        "response": {
+            "data": [
+                {"value": 15.42, "period": "2026-01"},
+                {"value": 14.87, "period": "2025-12"},
+            ]
+        }
+    }
+
+    respx.get(url__regex=r".*api\.eia\.gov.*natural-gas/pri/sum.*").mock(
+        return_value=httpx.Response(200, json=eia_response)
+    )
+
+    result = await fetch_residential_natgas_prices(fetcher, api_key="test-key")
+    assert result["source"] == "eia"
+    assert len(result["prices"]) == 2
+    assert result["prices"][0]["price"] == 15.42
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_fetch_electricity_rates(fetcher: Fetcher) -> None:
+    from world_intel_mcp.sources.economic import fetch_electricity_rates
+
+    eia_response = {
+        "response": {
+            "data": [
+                {"sectorid": "RES", "price": 16.21, "period": "2026-01"},
+                {"sectorid": "COM", "price": 13.45, "period": "2026-01"},
+                {"sectorid": "IND", "price": 8.76, "period": "2026-01"},
+                {"sectorid": "ALL", "price": 12.89, "period": "2026-01"},
+            ]
+        }
+    }
+
+    respx.get(url__regex=r".*api\.eia\.gov.*electricity/retail-sales.*").mock(
+        return_value=httpx.Response(200, json=eia_response)
+    )
+
+    result = await fetch_electricity_rates(fetcher, api_key="test-key")
+    assert result["source"] == "eia"
+    assert result["state"] == "US"
+    assert "residential" in result["rates"]
+    assert result["rates"]["residential"]["price_cents_kwh"] == 16.21
+    assert "commercial" in result["rates"]
+    assert "industrial" in result["rates"]
 
 
 # ---------------------------------------------------------------------------
@@ -351,14 +468,16 @@ async def test_fetch_shipping_index(fetcher: Fetcher) -> None:
 
     chart_response = {
         "chart": {
-            "result": [{
-                "meta": {
-                    "symbol": "BDRY",
-                    "regularMarketPrice": 15.50,
-                    "regularMarketChangePercent": 4.2,
-                    "currency": "USD",
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "BDRY",
+                        "regularMarketPrice": 15.50,
+                        "regularMarketChangePercent": 4.2,
+                        "currency": "USD",
+                    }
                 }
-            }]
+            ]
         }
     }
 
@@ -504,6 +623,7 @@ async def test_fetch_internet_outages_ioda_fallback(fetcher: Fetcher) -> None:
     )
 
     import os
+
     os.environ.pop("CLOUDFLARE_API_TOKEN", None)
 
     result = await fetch_internet_outages(fetcher)
@@ -603,16 +723,32 @@ async def test_fetch_hacker_news(fetcher: Fetcher) -> None:
         return_value=httpx.Response(200, json=[101, 102])
     )
     respx.get("https://hacker-news.firebaseio.com/v0/item/101.json").mock(
-        return_value=httpx.Response(200, json={
-            "id": 101, "title": "Show HN: AI Tool", "url": "https://example.com",
-            "score": 200, "by": "user1", "time": 1700000000, "descendants": 50,
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": 101,
+                "title": "Show HN: AI Tool",
+                "url": "https://example.com",
+                "score": 200,
+                "by": "user1",
+                "time": 1700000000,
+                "descendants": 50,
+            },
+        )
     )
     respx.get("https://hacker-news.firebaseio.com/v0/item/102.json").mock(
-        return_value=httpx.Response(200, json={
-            "id": 102, "title": "Rust 2.0", "url": "https://example.com/rust",
-            "score": 150, "by": "user2", "time": 1700001000, "descendants": 30,
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": 102,
+                "title": "Rust 2.0",
+                "url": "https://example.com/rust",
+                "score": 150,
+                "by": "user2",
+                "time": 1700001000,
+                "descendants": 30,
+            },
+        )
     )
 
     result = await fetch_hacker_news(fetcher, limit=2)
@@ -632,19 +768,24 @@ async def test_fetch_trending_repos(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.github_trending import fetch_trending_repos
 
     respx.get(url__regex=r".*api\.github\.com/search/repositories.*").mock(
-        return_value=httpx.Response(200, json={
-            "total_count": 1,
-            "items": [{
-                "full_name": "user/cool-repo",
-                "description": "A cool tool",
-                "html_url": "https://github.com/user/cool-repo",
-                "stargazers_count": 500,
-                "forks_count": 20,
-                "language": "Python",
-                "created_at": "2026-02-20T00:00:00Z",
-                "topics": ["ai", "ml"],
-            }],
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "total_count": 1,
+                "items": [
+                    {
+                        "full_name": "user/cool-repo",
+                        "description": "A cool tool",
+                        "html_url": "https://github.com/user/cool-repo",
+                        "stargazers_count": 500,
+                        "forks_count": 20,
+                        "language": "Python",
+                        "created_at": "2026-02-20T00:00:00Z",
+                        "topics": ["ai", "ml"],
+                    }
+                ],
+            },
+        )
     )
 
     result = await fetch_trending_repos(fetcher, limit=5)
@@ -702,17 +843,22 @@ async def test_fetch_usa_spending(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.usa_spending import fetch_usa_spending
 
     respx.get(url__regex=r".*api\.usaspending\.gov.*").mock(
-        return_value=httpx.Response(200, json={
-            "results": [{
-                "agency_name": "Department of Defense",
-                "abbreviation": "DOD",
-                "current_total_budget_authority_amount": 850000000000,
-                "obligated_amount": 700000000000,
-                "outlay_amount": 650000000000,
-                "agency_id": 97,
-            }],
-            "page_metadata": {"total": 1},
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "agency_name": "Department of Defense",
+                        "abbreviation": "DOD",
+                        "current_total_budget_authority_amount": 850000000000,
+                        "obligated_amount": 700000000000,
+                        "outlay_amount": 650000000000,
+                        "agency_id": 97,
+                    }
+                ],
+                "page_metadata": {"total": 1},
+            },
+        )
     )
 
     result = await fetch_usa_spending(fetcher, limit=5)
@@ -732,15 +878,27 @@ async def test_fetch_environmental_events(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.environmental import fetch_environmental_events
 
     respx.get(url__regex=r".*eonet\.gsfc\.nasa\.gov.*").mock(
-        return_value=httpx.Response(200, json={
-            "events": [{
-                "id": "EONET_1234",
-                "title": "Wildfire in California",
-                "categories": [{"id": "wildfires", "title": "Wildfires"}],
-                "sources": [{"id": "InciWeb", "url": "https://inciweb.example.com"}],
-                "geometry": [{"date": "2026-02-20T00:00:00Z", "coordinates": [-119.5, 34.5]}],
-            }],
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "events": [
+                    {
+                        "id": "EONET_1234",
+                        "title": "Wildfire in California",
+                        "categories": [{"id": "wildfires", "title": "Wildfires"}],
+                        "sources": [
+                            {"id": "InciWeb", "url": "https://inciweb.example.com"}
+                        ],
+                        "geometry": [
+                            {
+                                "date": "2026-02-20T00:00:00Z",
+                                "coordinates": [-119.5, 34.5],
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
     )
 
     result = await fetch_environmental_events(fetcher, days=7)
@@ -761,22 +919,24 @@ async def test_fetch_disaster_alerts(fetcher: Fetcher) -> None:
 
     gdacs_geojson = {
         "type": "FeatureCollection",
-        "features": [{
-            "type": "Feature",
-            "properties": {
-                "eventtype": "EQ",
-                "eventname": "M6.5 Earthquake",
-                "alertlevel": "orange",
-                "alertscore": 2.5,
-                "severity": {"value": 6.5, "unit": "M"},
-                "country": "Turkey",
-                "fromdate": "2026-02-20T12:00:00Z",
-                "todate": "2026-02-20T12:05:00Z",
-                "url": {"report": "https://gdacs.example.com/report"},
-                "population": {"value": 500000},
-            },
-            "geometry": {"type": "Point", "coordinates": [29.0, 38.5]},
-        }],
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "eventtype": "EQ",
+                    "eventname": "M6.5 Earthquake",
+                    "alertlevel": "orange",
+                    "alertscore": 2.5,
+                    "severity": {"value": 6.5, "unit": "M"},
+                    "country": "Turkey",
+                    "fromdate": "2026-02-20T12:00:00Z",
+                    "todate": "2026-02-20T12:05:00Z",
+                    "url": {"report": "https://gdacs.example.com/report"},
+                    "population": {"value": 500000},
+                },
+                "geometry": {"type": "Point", "coordinates": [29.0, 38.5]},
+            }
+        ],
     }
 
     respx.get(url__regex=r".*gdacs\.org.*").mock(
@@ -856,14 +1016,16 @@ async def test_fetch_country_stocks(fetcher: Fetcher) -> None:
 
     chart_response = {
         "chart": {
-            "result": [{
-                "meta": {
-                    "symbol": "^GSPC",
-                    "regularMarketPrice": 5200.0,
-                    "regularMarketChangePercent": 0.75,
-                    "currency": "USD",
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "^GSPC",
+                        "regularMarketPrice": 5200.0,
+                        "regularMarketChangePercent": 0.75,
+                        "currency": "USD",
+                    }
                 }
-            }]
+            ]
         }
     }
 
@@ -888,21 +1050,29 @@ async def test_fetch_aircraft_details_batch(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.military import fetch_aircraft_details_batch
 
     respx.get(url__regex=r".*hexdb\.io/api/v1/aircraft/ae1234.*").mock(
-        return_value=httpx.Response(200, json={
-            "Registration": "12-3456",
-            "Type": "C-17A",
-            "Operator": "USAF",
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "Registration": "12-3456",
+                "Type": "C-17A",
+                "Operator": "USAF",
+            },
+        )
     )
     respx.get(url__regex=r".*hexdb\.io/api/v1/aircraft/ae5678.*").mock(
-        return_value=httpx.Response(200, json={
-            "Registration": "78-9012",
-            "Type": "KC-135R",
-            "Operator": "USAF",
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "Registration": "78-9012",
+                "Type": "KC-135R",
+                "Operator": "USAF",
+            },
+        )
     )
 
-    result = await fetch_aircraft_details_batch(fetcher, icao24_list=["ae1234", "ae5678"])
+    result = await fetch_aircraft_details_batch(
+        fetcher, icao24_list=["ae1234", "ae5678"]
+    )
     assert result["source"] == "hexdb"
     assert result["count"] == 2
     assert result["requested"] == 2
@@ -964,6 +1134,7 @@ async def test_fetch_central_bank_rates_no_fred(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.central_banks import fetch_central_bank_rates
 
     import os
+
     os.environ.pop("FRED_API_KEY", None)
 
     result = await fetch_central_bank_rates(fetcher)
@@ -984,13 +1155,10 @@ async def test_fetch_central_bank_rates_with_fred(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.central_banks import fetch_central_bank_rates
 
     import os
+
     os.environ["FRED_API_KEY"] = "test_key_123"
 
-    fred_response = {
-        "observations": [
-            {"date": "2026-02-25", "value": "4.33"}
-        ]
-    }
+    fred_response = {"observations": [{"date": "2026-02-25", "value": "4.33"}]}
 
     respx.get("https://api.stlouisfed.org/fred/series/observations").mock(
         return_value=httpx.Response(200, json=fred_response)
@@ -1189,6 +1357,7 @@ async def test_fetch_financial_centers_filter_country() -> None:
 # Country Dossier (Phase 16)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_fetch_country_dossier(fetcher: Fetcher) -> None:
@@ -1197,40 +1366,60 @@ async def test_fetch_country_dossier(fetcher: Fetcher) -> None:
 
     # Mock World Bank GDP
     respx.get("https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.CD").mock(
-        return_value=httpx.Response(200, json=[
-            {"page": 1},
-            [{"date": "2024", "value": 28000000000000}],
-        ])
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"page": 1},
+                [{"date": "2024", "value": 28000000000000}],
+            ],
+        )
     )
     # Mock World Bank inflation
     respx.get("https://api.worldbank.org/v2/country/US/indicator/FP.CPI.TOTL.ZG").mock(
-        return_value=httpx.Response(200, json=[
-            {"page": 1},
-            [{"date": "2024", "value": 3.2}],
-        ])
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"page": 1},
+                [{"date": "2024", "value": 3.2}],
+            ],
+        )
     )
     # Mock ACLED (no key = skip)
     # Mock Yahoo Finance for country stocks
     respx.get("https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC").mock(
-        return_value=httpx.Response(200, json={
-            "chart": {"result": [{"meta": {
-                "regularMarketPrice": 5800,
-                "chartPreviousClose": 5750,
-                "currency": "USD",
-                "exchangeName": "SNP",
-            }}]},
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {
+                                "regularMarketPrice": 5800,
+                                "chartPreviousClose": 5750,
+                                "currency": "USD",
+                                "exchangeName": "SNP",
+                            }
+                        }
+                    ]
+                },
+            },
+        )
     )
     # Mock OFAC sanctions
-    respx.get("https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML").mock(
-        return_value=httpx.Response(200, text="<sdnList></sdnList>")
-    )
+    respx.get(
+        "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
+    ).mock(return_value=httpx.Response(200, text="<sdnList></sdnList>"))
     # Mock news feeds — just one category needed
-    respx.route().mock(return_value=httpx.Response(200, text="""<?xml version="1.0"?>
+    respx.route().mock(
+        return_value=httpx.Response(
+            200,
+            text="""<?xml version="1.0"?>
     <rss version="2.0"><channel><title>Test</title>
     <item><title>US Economy Grows</title><link>https://example.com/1</link></item>
     <item><title>China Trade</title><link>https://example.com/2</link></item>
-    </channel></rss>"""))
+    </channel></rss>""",
+        )
+    )
 
     result = await fetch_country_dossier(fetcher, country="US")
 
@@ -1260,6 +1449,7 @@ async def test_fetch_country_dossier_invalid_code(fetcher: Fetcher) -> None:
 # Traffic (Phase 16)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_fetch_traffic_flow_no_key(fetcher: Fetcher) -> None:
@@ -1279,12 +1469,17 @@ async def test_fetch_traffic_flow_with_key(fetcher: Fetcher) -> None:
     """Traffic flow fetches congestion data from TomTom."""
     from world_intel_mcp.sources.traffic import fetch_traffic_flow
 
-    respx.route().mock(return_value=httpx.Response(200, json={
-        "flowSegmentData": {
-            "currentSpeed": 30.0,
-            "freeFlowSpeed": 60.0,
-        },
-    }))
+    respx.route().mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "flowSegmentData": {
+                    "currentSpeed": 30.0,
+                    "freeFlowSpeed": 60.0,
+                },
+            },
+        )
+    )
 
     with patch.dict("os.environ", {"TOMTOM_API_KEY": "test-key"}):
         result = await fetch_traffic_flow(fetcher)
@@ -1311,6 +1506,7 @@ async def test_fetch_traffic_incidents_no_key(fetcher: Fetcher) -> None:
 # Aviation Domestic (Phase 16)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_fetch_domestic_flights(fetcher: Fetcher) -> None:
@@ -1318,14 +1514,70 @@ async def test_fetch_domestic_flights(fetcher: Fetcher) -> None:
     from world_intel_mcp.sources.aviation import fetch_domestic_flights
 
     # Simulate 3 airborne aircraft at known positions
-    respx.route().mock(return_value=httpx.Response(200, json={
-        "states": [
-            # [icao24, callsign, origin, ..., on_ground=False, lon, lat, ...]
-            ["abc123", "UAL123 ", "United States", None, None, -73.9, 40.7, 10000, False, None, None, None, None, None, None, None],
-            ["def456", "BAW789 ", "United Kingdom", None, None, -0.1, 51.5, 11000, False, None, None, None, None, None, None, None],
-            ["ghi789", "CCA100 ", "China", None, None, 116.4, 39.9, 12000, False, None, None, None, None, None, None, None],
-        ],
-    }))
+    respx.route().mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "states": [
+                    # [icao24, callsign, origin, ..., on_ground=False, lon, lat, ...]
+                    [
+                        "abc123",
+                        "UAL123 ",
+                        "United States",
+                        None,
+                        None,
+                        -73.9,
+                        40.7,
+                        10000,
+                        False,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ],
+                    [
+                        "def456",
+                        "BAW789 ",
+                        "United Kingdom",
+                        None,
+                        None,
+                        -0.1,
+                        51.5,
+                        11000,
+                        False,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ],
+                    [
+                        "ghi789",
+                        "CCA100 ",
+                        "China",
+                        None,
+                        None,
+                        116.4,
+                        39.9,
+                        12000,
+                        False,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ],
+                ],
+            },
+        )
+    )
 
     result = await fetch_domestic_flights(fetcher)
 
@@ -1338,6 +1590,7 @@ async def test_fetch_domestic_flights(fetcher: Fetcher) -> None:
 # ---------------------------------------------------------------------------
 # Webcams (Phase 16)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_fetch_webcams_no_key(fetcher: Fetcher) -> None:
@@ -1357,18 +1610,33 @@ async def test_fetch_webcams_with_key(fetcher: Fetcher) -> None:
     """Webcams fetches camera data from Windy API."""
     from world_intel_mcp.sources.webcams import fetch_webcams
 
-    respx.route().mock(return_value=httpx.Response(200, json={
-        "webcams": [
-            {
-                "webcamId": "cam-1",
-                "title": "Times Square",
-                "location": {"latitude": 40.758, "longitude": -73.985, "city": "New York", "country": "US"},
-                "images": {"current": {"preview": "https://example.com/prev.jpg", "thumbnail": "https://example.com/thumb.jpg"}},
-                "player": {"day": {"embed": "https://example.com/player"}},
-                "status": "active",
+    respx.route().mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "webcams": [
+                    {
+                        "webcamId": "cam-1",
+                        "title": "Times Square",
+                        "location": {
+                            "latitude": 40.758,
+                            "longitude": -73.985,
+                            "city": "New York",
+                            "country": "US",
+                        },
+                        "images": {
+                            "current": {
+                                "preview": "https://example.com/prev.jpg",
+                                "thumbnail": "https://example.com/thumb.jpg",
+                            }
+                        },
+                        "player": {"day": {"embed": "https://example.com/player"}},
+                        "status": "active",
+                    },
+                ],
             },
-        ],
-    }))
+        )
+    )
 
     with patch.dict("os.environ", {"WINDY_API_KEY": "test-key"}):
         result = await fetch_webcams(fetcher, category="traffic", limit=10)

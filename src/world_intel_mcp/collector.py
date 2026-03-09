@@ -46,8 +46,11 @@ SOURCES = [
     ("etf_flows", "sources.markets", "fetch_etf_flows", {}),
     ("commodity_quotes", "sources.markets", "fetch_commodity_quotes", {}),
     ("btc_technicals", "sources.markets", "fetch_btc_technicals", {}),
-    # Economic (3)
+    # Economic (6)
     ("energy_prices", "sources.economic", "fetch_energy_prices", {}),
+    ("gas_prices", "sources.economic", "fetch_gas_prices", {}),
+    ("residential_natgas", "sources.economic", "fetch_residential_natgas_prices", {}),
+    ("electricity_rates", "sources.economic", "fetch_electricity_rates", {}),
     ("central_bank_rates", "sources.central_banks", "fetch_central_bank_rates", {}),
     # Natural Disasters (2)
     ("earthquakes", "sources.seismology", "fetch_earthquakes", {}),
@@ -115,7 +118,13 @@ DOMAIN_GROUPS = {
         "commodity_quotes",
         "btc_technicals",
     ],
-    "economic": ["energy_prices", "central_bank_rates"],
+    "economic": [
+        "energy_prices",
+        "gas_prices",
+        "residential_natgas",
+        "electricity_rates",
+        "central_bank_rates",
+    ],
     "natural": ["earthquakes", "wildfires"],
     "conflict": ["acled_events", "ucdp_events", "displacement"],
     "military": ["military_flights"],

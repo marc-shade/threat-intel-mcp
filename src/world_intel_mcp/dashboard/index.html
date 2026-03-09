@@ -327,14 +327,19 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ═══════════════ VECTOR INTELLIGENCE PANEL ═══════════════ */
 #vectorPanel {
-    position: fixed; bottom: 44px; left: 10px; z-index: 40;
+    position: fixed; bottom: 44px; right: 360px; z-index: 40;
     width: 310px; max-height: 420px;
     overflow-y: auto; overflow-x: hidden;
     padding: 12px 14px;
     transition: transform 0.4s var(--ease), opacity 0.3s;
 }
 #vectorPanel.hidden { transform: translateY(20px); opacity: 0; pointer-events: none; }
-.vec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+#vectorPanel.collapsed { max-height: 36px; overflow: hidden; }
+#vectorPanel.collapsed .vec-body { display: none; }
+.vec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; cursor: pointer; user-select: none; }
+.vec-header:hover .vec-title { color: var(--bright); }
+.vec-toggle { font-size: 0.7rem; color: var(--dim); transition: transform 0.25s var(--ease); }
+#vectorPanel.collapsed .vec-toggle { transform: rotate(-90deg); }
 .vec-title { font-size: 0.62rem; font-weight: 600; letter-spacing: 2.5px; color: var(--accent); text-transform: uppercase; }
 .vec-stat { font-family: var(--mono); font-size: 0.6rem; color: var(--dim); }
 .vec-stat .v { color: var(--bright); font-weight: 600; }
@@ -783,16 +788,21 @@ a { color: var(--accent); text-decoration: none; }
 
 <!-- VECTOR INTELLIGENCE PANEL -->
 <div id="vectorPanel" class="glass hidden">
-    <div class="vec-header">
+    <div class="vec-header" id="vecHeaderToggle">
         <span class="vec-title">Vector Intelligence</span>
-        <span class="vec-stat" id="vecPointCount"></span>
+        <span style="display:flex;align-items:center;gap:6px">
+            <span class="vec-stat" id="vecPointCount"></span>
+            <span class="vec-toggle">&#x25BC;</span>
+        </span>
     </div>
-    <div id="vecContent"><div class="vec-unavail">Connecting...</div></div>
-    <div class="vec-search-wrap">
-        <input type="text" class="vec-search-input" id="vecSearchInput" placeholder="Semantic search..." autocomplete="off">
-        <button class="vec-search-btn" id="vecSearchBtn">Search</button>
+    <div class="vec-body">
+        <div id="vecContent"><div class="vec-unavail">Connecting...</div></div>
+        <div class="vec-search-wrap">
+            <input type="text" class="vec-search-input" id="vecSearchInput" placeholder="Semantic search..." autocomplete="off">
+            <button class="vec-search-btn" id="vecSearchBtn">Search</button>
+        </div>
+        <div class="vec-results" id="vecResults"></div>
     </div>
-    <div class="vec-results" id="vecResults"></div>
 </div>
 
 <script>
@@ -2248,14 +2258,67 @@ function updateDrawer(data) {
         var ep = data.energy_prices;
         var eRows = [];
         if (ep.oil) {
-            if (ep.oil.brent && ep.oil.brent.price != null) eRows.push({name: 'Brent Crude', price: ep.oil.brent.price, date: ep.oil.brent.date});
-            if (ep.oil.wti && ep.oil.wti.price != null) eRows.push({name: 'WTI Crude', price: ep.oil.wti.price, date: ep.oil.wti.date});
+            if (ep.oil.brent && ep.oil.brent.price != null) eRows.push({name: 'Brent Crude', price: ep.oil.brent.price, date: ep.oil.brent.date, unit: '$/bbl'});
+            if (ep.oil.wti && ep.oil.wti.price != null) eRows.push({name: 'WTI Crude', price: ep.oil.wti.price, date: ep.oil.wti.date, unit: '$/bbl'});
         }
-        if (ep.natural_gas && ep.natural_gas.price != null) eRows.push({name: 'Natural Gas', price: ep.natural_gas.price, date: ep.natural_gas.date});
+        if (ep.natural_gas && ep.natural_gas.price != null) eRows.push({name: 'Nat Gas Futures', price: ep.natural_gas.price, date: ep.natural_gas.date, unit: '$/MMBtu'});
         if (eRows.length) {
             h += '<div class="sub">Energy</div><table class="dtable"><thead><tr><th>Commodity</th><th>Price</th><th>Date</th></tr></thead><tbody>';
             eRows.forEach(function(item) {
                 h += '<tr><td>' + esc(item.name) + '</td><td class="bright">$' + fmtNum(item.price) + '</td><td class="dim">' + esc(item.date || '\u2014') + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    // US Retail Gas Prices (AAA daily)
+    if (data.gas_prices && !data.gas_prices.error) {
+        var gp = data.gas_prices;
+        var prices = gp.prices || {};
+        var grades = ['regular', 'mid_grade', 'premium', 'diesel'];
+        var gradeLabels = {regular: 'Regular', mid_grade: 'Mid-Grade', premium: 'Premium', diesel: 'Diesel'};
+        var gRows = [];
+        grades.forEach(function(g) {
+            var p = prices[g];
+            if (p && p.price_per_gallon != null) gRows.push({name: gradeLabels[g] || g, price: p.price_per_gallon, change: p.change, change_pct: p.change_pct, week_ago_pct: p.week_ago_pct, month_ago_pct: p.month_ago_pct});
+        });
+        if (gRows.length) {
+            h += '<div class="sub">US Gas Prices <span class="dim" style="font-size:0.55rem">today via AAA</span></div>';
+            h += '<table class="dtable"><thead><tr><th>Grade</th><th>$/gal</th><th>DoD</th><th>WoW</th></tr></thead><tbody>';
+            gRows.forEach(function(item) {
+                var dod = item.change_pct != null ? '<span class="' + cls(item.change_pct) + '">' + fmtPct(item.change_pct) + '%</span>' : '<span class="dim">\u2014</span>';
+                var wow = item.week_ago_pct != null ? '<span class="' + cls(item.week_ago_pct) + '">' + fmtPct(item.week_ago_pct) + '%</span>' : '<span class="dim">\u2014</span>';
+                h += '<tr><td>' + esc(item.name) + '</td><td class="bright">$' + fmtNum(item.price, 3) + '</td><td>' + dod + '</td><td>' + wow + '</td></tr>';
+            });
+            h += '</tbody></table>';
+        }
+    }
+    // Residential Natural Gas
+    if (data.residential_natgas && !data.residential_natgas.error) {
+        var rng = data.residential_natgas;
+        var ngPrices = rng.prices || [];
+        if (ngPrices.length) {
+            var ngFirst = ngPrices[0];
+            var ngChg = ngFirst.change_pct != null ? ' <span class="' + cls(ngFirst.change_pct) + '" style="font-size:0.6rem">' + fmtPct(ngFirst.change_pct) + '% MoM</span>' : '';
+            h += '<div class="sub">Residential Nat Gas <span class="dim" style="font-size:0.55rem">' + esc(ngFirst.period || '') + '</span></div>';
+            h += '<div class="mini-row"><div class="mini-box"><div class="v bright">$' + fmtNum(ngFirst.price) + '</div><div class="l">$/MCF' + ngChg + '</div></div></div>';
+        }
+    }
+    // Electricity Rates
+    if (data.electricity_rates && !data.electricity_rates.error) {
+        var er = data.electricity_rates;
+        var rates = er.rates || {};
+        var sectors = ['residential', 'commercial', 'industrial'];
+        var eRateRows = [];
+        sectors.forEach(function(s) {
+            var r = rates[s];
+            if (r && r.price_cents_kwh != null) eRateRows.push({name: s.charAt(0).toUpperCase() + s.slice(1), price: r.price_cents_kwh, period: r.period, change: r.change, change_pct: r.change_pct});
+        });
+        if (eRateRows.length) {
+            h += '<div class="sub">Electricity (\u00A2/kWh) — ' + esc(er.state || 'US') + ' <span class="dim" style="font-size:0.55rem">' + esc(eRateRows[0].period || '') + '</span></div>';
+            h += '<table class="dtable"><thead><tr><th>Sector</th><th>\u00A2/kWh</th><th>MoM</th></tr></thead><tbody>';
+            eRateRows.forEach(function(item) {
+                var chg = item.change_pct != null ? '<span class="' + cls(item.change_pct) + '">' + fmtPct(item.change_pct) + '%</span>' : '<span class="dim">\u2014</span>';
+                h += '<tr><td>' + esc(item.name) + '</td><td class="bright">' + fmtNum(item.price) + '\u00A2</td><td>' + chg + '</td></tr>';
             });
             h += '</tbody></table>';
         }
@@ -2803,12 +2866,12 @@ function updateDrawer(data) {
         var crossCls = bt.cross_signal === 'golden_cross' ? 'good' : bt.cross_signal === 'death_cross' ? 'crit' : 'dim';
         var crossLabel = bt.cross_signal === 'golden_cross' ? 'GOLDEN CROSS' : bt.cross_signal === 'death_cross' ? 'DEATH CROSS' : 'NEUTRAL';
         h += '<div class="mini-boxes" style="margin:6px 0">';
-        h += '<div class="mini-box"><div class="v">$' + num(bt.price) + '</div><div class="l">BTC Price</div></div>';
+        h += '<div class="mini-box"><div class="v">$' + fmtNum(bt.price) + '</div><div class="l">BTC Price</div></div>';
         h += '<div class="mini-box"><div class="v">' + (bt.mayer_multiple || '—') + '</div><div class="l">Mayer Multiple</div></div>';
         h += '<div class="mini-box"><div class="v ' + crossCls + '">' + crossLabel + '</div><div class="l">Signal</div></div>';
         h += '</div>';
-        h += '<div style="font-size:0.65rem;padding:2px 0"><span class="bright">SMA-50</span> <span class="dim">$' + num(bt.sma_50) + '</span></div>';
-        if (bt.sma_200) h += '<div style="font-size:0.65rem;padding:1px 0"><span class="bright">SMA-200</span> <span class="dim">$' + num(bt.sma_200) + '</span></div>';
+        h += '<div style="font-size:0.65rem;padding:2px 0"><span class="bright">SMA-50</span> <span class="dim">$' + fmtNum(bt.sma_50) + '</span></div>';
+        if (bt.sma_200) h += '<div style="font-size:0.65rem;padding:1px 0"><span class="bright">SMA-200</span> <span class="dim">$' + fmtNum(bt.sma_200) + '</span></div>';
         if (bt.change_7d_pct != null) {
             var c7 = bt.change_7d_pct >= 0 ? 'good' : 'crit';
             h += '<div style="font-size:0.65rem;padding:1px 0"><span class="bright">7d</span> <span class="' + c7 + '">' + (bt.change_7d_pct > 0 ? '+' : '') + bt.change_7d_pct + '%</span>';
@@ -3234,6 +3297,14 @@ function doVecSearch() {
         $('#vecSearchBtn').textContent = 'Search';
     });
 }
+
+$('#vecHeaderToggle').addEventListener('click', function() {
+    var panel = $('#vectorPanel');
+    panel.classList.toggle('collapsed');
+    try { localStorage.setItem('phoenix-vec-collapsed', panel.classList.contains('collapsed') ? '1' : ''); } catch(e) {}
+});
+// Restore collapsed state
+try { if (localStorage.getItem('phoenix-vec-collapsed') === '1') { $('#vectorPanel').classList.add('collapsed'); } } catch(e) {}
 
 $('#vecSearchBtn').addEventListener('click', doVecSearch);
 $('#vecSearchInput').addEventListener('keydown', function(e) {

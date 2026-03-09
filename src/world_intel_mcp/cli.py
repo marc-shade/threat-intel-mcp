@@ -232,6 +232,101 @@ def energy(ctx: click.Context) -> None:
     console.print(table)
 
 
+@main.command("gas-prices")
+@click.pass_context
+def gas_prices(ctx: click.Context) -> None:
+    """US retail gasoline & diesel prices (AAA, daily)."""
+    f = _get_fetcher()
+    data = _run(economic.fetch_gas_prices(f))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    prices = data.get("prices", {})
+    table = Table(title="US Gas Prices — Today (AAA)", box=box.SIMPLE_HEAVY)
+    table.add_column("Grade", style="bold")
+    table.add_column("$/gallon", justify="right")
+    table.add_column("DoD", justify="right")
+    table.add_column("WoW", justify="right")
+
+    grade_labels = {
+        "regular": "Regular",
+        "mid_grade": "Mid-Grade",
+        "premium": "Premium",
+        "diesel": "Diesel",
+    }
+    for grade, label in grade_labels.items():
+        info = prices.get(grade)
+        if info and isinstance(info, dict):
+            price = info.get("price_per_gallon", 0)
+            dod = info.get("change_pct")
+            wow = info.get("week_ago_pct")
+            dod_str = (
+                f"[{'green' if dod >= 0 else 'red'}]{dod:+.2f}%[/]"
+                if dod is not None
+                else "—"
+            )
+            wow_str = (
+                f"[{'green' if wow >= 0 else 'red'}]{wow:+.2f}%[/]"
+                if wow is not None
+                else "—"
+            )
+            table.add_row(label, f"${price:.3f}", dod_str, wow_str)
+    console.print(table)
+
+
+@main.command("natgas")
+@click.pass_context
+def natgas(ctx: click.Context) -> None:
+    """US residential natural gas prices (EIA)."""
+    f = _get_fetcher()
+    data = _run(economic.fetch_residential_natgas_prices(f))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    prices = data.get("prices", [])
+    table = Table(title="US Residential Natural Gas Prices", box=box.SIMPLE_HEAVY)
+    table.add_column("Period", style="bold")
+    table.add_column("$/MCF", justify="right")
+
+    for entry in prices:
+        table.add_row(str(entry.get("period", "")), f"${entry.get('price', '?'):.2f}")
+    console.print(table)
+
+
+@main.command("electricity")
+@click.option("--state", "-s", default=None, help="2-letter state code (e.g., CA, TX)")
+@click.pass_context
+def electricity(ctx: click.Context, state: str | None) -> None:
+    """US electricity retail rates (EIA)."""
+    f = _get_fetcher()
+    data = _run(economic.fetch_electricity_rates(f, state=state))
+
+    if ctx.obj.get("json") or "error" in data:
+        _print_json(data)
+        return
+
+    rates = data.get("rates", {})
+    label = data.get("state", "US")
+    table = Table(title=f"Electricity Rates — {label}", box=box.SIMPLE_HEAVY)
+    table.add_column("Sector", style="bold")
+    table.add_column("cents/kWh", justify="right")
+    table.add_column("Period")
+
+    for sector in ("residential", "commercial", "industrial", "all_sectors"):
+        info = rates.get(sector)
+        if info and isinstance(info, dict):
+            table.add_row(
+                sector.replace("_", " ").title(),
+                f"{info.get('price_cents_kwh', '?'):.2f}",
+                str(info.get("period", "")),
+            )
+    console.print(table)
+
+
 @main.command()
 @click.argument("series_id")
 @click.option("--limit", "-n", default=30, help="Number of observations")
