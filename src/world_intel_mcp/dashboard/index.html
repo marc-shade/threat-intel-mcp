@@ -3020,7 +3020,9 @@ function updateAll(data) {
 // ════════════ SSE CONNECTION ════════════
 
 var reconnectDelay = 1000;
+var _accumulatedData = {};
 function connectSSE() {
+    _accumulatedData = {};
     var source = new EventSource('/api/stream');
     source.onopen = function() {
         $('#connDot').className = 'conn-dot';
@@ -3030,9 +3032,39 @@ function connectSSE() {
     source.onmessage = function(event) {
         try {
             var data = JSON.parse(event.data);
-            if (data.error && !data.market_quotes) return;
-            updateAll(data);
-            document.getElementById('loading').classList.add('gone');
+            if (data.error && !data._progressive && !data._complete) return;
+
+            if (data._progressive) {
+                // Merge this source into accumulated state
+                var keys = Object.keys(data);
+                for (var i = 0; i < keys.length; i++) {
+                    if (keys[i].charAt(0) !== '_') _accumulatedData[keys[i]] = data[keys[i]];
+                }
+                // Update progress indicator
+                var loading = document.getElementById('loading');
+                if (loading && !loading.classList.contains('gone')) {
+                    var label = loading.querySelector('.loading-label');
+                    if (label) label.textContent = 'LOADING FEEDS ' + data._done + '/' + data._total;
+                }
+                // Hide spinner after first 3 sources arrive — show map immediately
+                if (data._done >= 3) {
+                    document.getElementById('loading').classList.add('gone');
+                }
+                // Progressively update the dashboard with accumulated data
+                updateAll(_accumulatedData);
+            } else if (data._complete) {
+                // Final metadata event
+                var mk = Object.keys(data);
+                for (var j = 0; j < mk.length; j++) {
+                    if (mk[j].charAt(0) !== '_') _accumulatedData[mk[j]] = data[mk[j]];
+                }
+                updateAll(_accumulatedData);
+                document.getElementById('loading').classList.add('gone');
+            } else {
+                // Legacy full-payload mode
+                updateAll(data);
+                document.getElementById('loading').classList.add('gone');
+            }
         } catch (e) { console.error('Parse error:', e); }
     };
     source.onerror = function() {
