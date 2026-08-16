@@ -1,581 +1,90 @@
-![Phoenix Intelligence Dashboard](docs/dashboard.png)
+🇿🇦 South Africa Intel MCP
 
-# World Intelligence MCP Server
+A South Africa-first intelligence and situational-awareness MCP server built from the "World Intel MCP" (https://github.com/marc-shade/world-intel-mcp) project.
 
-[![MCP](https://img.shields.io/badge/MCP-Compatible-blue)](https://modelcontextprotocol.io)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+South Africa is the primary area of interest. The system collects, normalizes, caches, analyzes, and exposes intelligence from relevant public data sources through the Model Context Protocol (MCP).
 
-Real-time global intelligence across **30+ domains** with **120 MCP tools**, a live ops-center dashboard, a CLI, and a **Qdrant vector store** for enterprise-grade semantic search across accumulated intelligence. All data comes from free, public APIs: no paid subscriptions required.
+🎯 Mission
 
-Built for AI agents that need world awareness: market conditions, geopolitical risk, military posture, supply chain disruptions, cyber threats, and more — all queryable via the Model Context Protocol. The vector store enables natural language queries like *"military activity near Taiwan"* or *"cyber threats targeting healthcare"* across all historical data.
+Provide a free, open-source intelligence platform focused on South Africa.
 
----
+The system is designed to answer questions such as:
 
-## What You Get
+- What is happening in South Africa right now?
+- What are the latest major South African news developments?
+- What is happening with South Africa's economy and the rand?
+- What is happening with electricity and Eskom?
+- What are the latest developments in South African politics?
+- What infrastructure incidents are occurring?
+- What is happening at South African ports and airports?
+- What weather and environmental events are developing?
+- What significant security developments are occurring?
+- What are the important developments across South Africa's provinces?
 
-| Domain | Tools | Data Sources |
-|--------|-------|-------------|
-| **Financial Markets** | 7 | Yahoo Finance, CoinGecko, Alternative.me, Mempool |
-| **Forex & Currency** | 3 | ECB/Frankfurter (8 major pairs, timeseries, cross rates) |
-| **Bonds & Yields** | 2 | FRED, Yahoo Finance (yield curve, bond ETFs, spread analysis) |
-| **Earnings** | 2 | Yahoo Finance (mega-cap calendar, surprise history) |
-| **SEC Filings** | 3 | SEC EDGAR (full-text search, company filings, 8-K material events) |
-| **Company Enrichment** | 1 | Yahoo Finance + GDELT + SEC + GitHub (composite profile) |
-| **Macro Composite** | 1 | Weighted 6-signal market verdict (Fear&Greed, VIX, sectors, DXY, BTC, yields) |
-| **Economic Indicators** | 6 | AAA fuel prices, EIA energy, FRED macro, World Bank |
-| **Central Banks** | 1 | 15 central bank policy rates |
-| **BTC Technicals** | 1 | SMA 50/200, golden/death cross, Mayer Multiple |
-| **Natural Disasters** | 2 | USGS earthquakes, NASA FIRMS wildfires |
-| **Environmental** | 2 | NASA EONET, GDACS disaster alerts |
-| **Climate** | 1 | Open-Meteo temperature/precipitation anomalies |
-| **Conflict & Security** | 4 | ACLED events, UCDP, unrest detection, humanitarian data |
-| **Military & Defense** | 6 | adsb.lol, OpenSky, hexdb.io, surge detection, theater posture, aircraft batch |
-| **Infrastructure** | 4 | Cloudflare Radar, submarine cables, cascade analysis, cloud status |
-| **Maritime** | 2 | NGA navigation warnings, vessel snapshots |
-| **Aviation** | 2 | FAA airport delays, domestic flight snapshot |
-| **News & Media** | 3 | 119 RSS feeds (4-tier), GDELT, trending keywords |
-| **Intelligence Analysis** | 8 | Signal convergence, focal points, instability index, risk scores, escalation |
-| **NLP Intelligence** | 4 | Entity extraction, event classification, news clustering, keyword spikes |
-| **Strategic Synthesis** | 4 | Strategic posture, world brief, fleet report, population exposure |
-| **Geospatial** | 11 | Military bases, ports, pipelines, nuclear facilities, cables, datacenters, spaceports, minerals, exchanges, trade routes, cloud regions |
-| **AI & Technology** | 4 | arXiv papers, HuggingFace models, Hacker News, GitHub trending |
-| **Cyber Threats** | 1 | URLhaus, Feodotracker, CISA KEV, SANS |
-| **Health** | 1 | WHO DON, ProMED, CIDRAP disease outbreaks |
-| **Space Weather** | 1 | NOAA SWPC (Kp index, solar flares, alerts) |
-| **Social & Sanctions** | 3 | Reddit velocity, OFAC SDN list, nuclear test site monitoring |
-| **Country Intelligence** | 3 | Country brief, country stocks, financial centers |
-| **Prediction Markets** | 1 | Polymarket event contracts |
-| **Elections** | 1 | Global election calendar with risk scoring |
-| **Displacement** | 1 | UNHCR refugee/IDP data |
-| **Shipping** | 1 | Dry bulk shipping stress index |
-| **Government** | 1 | USAspending.gov federal contracts |
-| **Traffic** | 2 | Road traffic flow, real-time incidents |
-| **Cross-Domain Alerts** | 2 | Alert digest, weekly trends |
-| **Monitoring** | 2 | Webcams, server health/status |
-| **Vector Search** | 5 | Qdrant semantic search, similarity, timeline, stats |
-| **Cross-Domain Analytics** | 3 | Correlation, domain summary, trend detection |
-| **Reports** | 1 | PDF/HTML multi-domain intelligence reports |
-| **Daily Digest** | 1 | Cited markdown morning brief: top events, headlines, trends, and timeline |
-| **AOI Geofences** | 5 | User-defined areas of interest: define/list/delete, a cited multi-domain brief, and hotspot escalation scoring for a user's own area |
-| **Situation Brief** | 1 | Cited situational awareness brief over MCP: bounded server-side overview synthesized via local Ollama, with a mechanically-cited fallback |
+Global information may be used when it has a direct and meaningful impact on South Africa.
 
-**Total: 120 tools** across 30+ intelligence domains.
+🇿🇦 Core Intelligence Domains
 
----
+- News & current events
+- Government & politics
+- Economy & macroeconomics
+- Markets, JSE & ZAR
+- Energy & electricity
+- Security & instability
+- Infrastructure
+- Transport, aviation & maritime
+- Weather & disasters
+- Environment
+- Geospatial intelligence
+- Business & companies
+- Mining & commodities
+- Intelligence analysis
 
-## Quick Start
+💰 Zero-Cost Principle
 
-### Install
+This project is designed to operate using free and publicly available data sources wherever possible.
 
-```bash
-git clone https://github.com/marc-shade/world-intel-mcp.git
-cd world-intel-mcp
-pip install -e .
+The project will not require:
 
-# Optional extras
-pip install -e ".[dashboard]"  # Live ops-center dashboard
-pip install -e ".[vector]"     # Qdrant vector store + FastEmbed
-pip install -e ".[dev]"        # pytest, respx, coverage
-```
+- Paid hosting
+- Paid databases
+- Paid APIs
+- Paid scraping services
+- Paid proxy services
+- Paid domains
 
-### Run as MCP Server
+Optional services that require API credentials must never be mandatory for the core South Africa intelligence system.
 
-```bash
-world-intel-mcp  # stdio mode for Claude Code, Cursor, etc.
-```
+🏗 Architecture
 
-### Claude Code Configuration
+The project preserves the original World Intel MCP architecture:
 
-Add to `~/.claude.json`:
+Public Data Sources
+        ↓
+Source Modules
+        ↓
+Fetcher
+        ↓
+Circuit Breaker
+        ↓
+SQLite Cache
+        ↓
+Analysis
+        ↓
+MCP Server
+        ↓
+AI Client / Dashboard
 
-```json
-{
-  "mcpServers": {
-    "world-intel-mcp": {
-      "command": "world-intel-mcp"
-    }
-  }
-}
-```
+📱 Intended Use
 
-### Dashboard
+The system is designed to be accessible remotely so that it can be used from a phone or other device through an MCP-compatible client and/or web dashboard.
 
-```bash
-intel-dashboard              # http://localhost:8501
-intel-dashboard --port 9000  # custom port
-```
+⚠️ Disclaimer
 
-### PDF/HTML Reports
+This project aggregates information from public sources. It does not guarantee the accuracy, completeness, or timeliness of third-party data.
 
-```bash
-pip install -e ".[pdf]"      # requires: brew install pango (macOS)
-intel report                 # full PDF report → ~/.cache/world-intel-mcp/
-intel report --format html   # HTML (no native deps needed)
-intel report -o brief.pdf    # custom output path
-intel report -s markets,cyber,earthquakes  # select sections
-```
+Information should be independently verified before being used for important decisions.
 
-Map-first ops center: Leaflet map with toggle-able layers (quakes, military, conflict, fires, convergence, nuclear, infrastructure), 47 live SSE feeds, HUD bar, glassmorphic panels, per-source circuit breaker health.
+License
 
-### CLI
-
-```bash
-intel markets              # stock indices
-intel earthquakes --min-mag 5.0
-intel status               # cache + circuit breaker health
-```
-
----
-
-## Architecture
-
-```
-server.py     (MCP stdio) ─┐                                               ┌─ VectorStore (Qdrant)
-cli.py        (Click CLI)  ├─> sources/*.py ─> Fetcher ─> CircuitBreaker ─┤
-dashboard.py  (SSE)        │    analysis/*.py                              └─ Cache (SQLite)
-collector.py  (daemon)    ─┘
-```
-
-- **Fetcher**: Centralized async HTTP client (httpx). Retries, per-source rate limiting, stale-data fallback. Auto-stores results in vector store on fresh fetches.
-- **CircuitBreaker**: Per-source tracking. 3 consecutive failures trips for 5 minutes. Each RSS feed gets its own breaker.
-- **Cache**: SQLite WAL-mode TTL cache. `get()` returns live data, `get_stale()` returns expired data for fallback.
-- **VectorStore**: Qdrant + FastEmbed (BAAI/bge-small-en-v1.5, 384-dim). Async background worker queue for non-blocking storage. Enables semantic search across all accumulated intelligence.
-- **Collector**: Standalone daemon that fetches all 46 sources in parallel and populates the vector store. Run once or as a daemon (default: 5-minute interval).
-- **Sources** (`sources/*.py`): 30+ modules, each exports `async def fetch_*(fetcher, **kwargs) -> dict`.
-- **Analysis** (`analysis/*.py`): Cross-domain synthesis — signal aggregation, instability indexing, NLP, company enrichment, macro composite.
-- **Config** (`config/*.py`): Curated datasets — 22 hotspots, 70+ bases, 40 ports, 24 pipelines, 24 nuclear facilities, 34 cables, 48 datacenters, 27 spaceports, 82 exchanges.
-
----
-
-## MCP Tools Reference
-
-### Financial Markets (7)
-| Tool | Description |
-|------|-------------|
-| `intel_market_quotes` | Stock index quotes (S&P 500, Dow, Nasdaq, FTSE, Nikkei) |
-| `intel_crypto_quotes` | Top crypto prices and market caps from CoinGecko |
-| `intel_stablecoin_status` | Stablecoin peg health (USDT, USDC, DAI, FDUSD) |
-| `intel_etf_flows` | Bitcoin spot ETF prices and volumes |
-| `intel_sector_heatmap` | US equity sector performance (11 SPDR ETFs) |
-| `intel_macro_signals` | 7 macro indicators (Fear & Greed, VIX, DXY, gold, 10Y, BTC) |
-| `intel_commodity_quotes` | Commodity futures (gold, silver, crude, natgas, grains) |
-
-### Forex & Currency (3)
-| Tool | Description |
-|------|-------------|
-| `intel_forex_rates` | Latest FX rates from ECB. Filter by base/target currencies |
-| `intel_forex_timeseries` | Historical FX rate with trend analysis (configurable days) |
-| `intel_major_crosses` | All 8 major pairs + cross rates + DXY proxy |
-
-### Bonds & Yields (2)
-| Tool | Description |
-|------|-------------|
-| `intel_yield_curve` | US Treasury yield curve (2Y-30Y), 2s10s/3m10y spreads, inversion flag |
-| `intel_bond_indices` | Bond ETFs: AGG, TLT, HYG, LQD, TIP with price/change |
-
-### Earnings (2)
-| Tool | Description |
-|------|-------------|
-| `intel_earnings_calendar` | Upcoming earnings for 20 mega-cap stocks with EPS estimates |
-| `intel_earnings_surprise` | Historical earnings surprise (actual vs estimate, trend) |
-
-### SEC Filings (3)
-| Tool | Description |
-|------|-------------|
-| `intel_sec_filings` | Full-text search across all EDGAR filings |
-| `intel_company_filings` | Company filings by ticker (10-K, 10-Q, 8-K) with CIK resolution |
-| `intel_recent_8k` | Latest 8-K material events (M&A, exec changes, earnings) |
-
-### Company Enrichment (1)
-| Tool | Description |
-|------|-------------|
-| `intel_company_profile` | Composite profile: stock quote + financials + news + SEC + GitHub |
-
-### Macro Composite (1)
-| Tool | Description |
-|------|-------------|
-| `intel_macro_composite` | Weighted market score (0-100) with verdict: RISK_ON to STRONG_CAUTION |
-
-### Economic (6)
-| Tool | Description |
-|------|-------------|
-| `intel_gas_prices` | Daily US retail gasoline, diesel, and E85 prices from AAA |
-| `intel_residential_natgas` | US residential natural gas prices from EIA |
-| `intel_electricity_rates` | US electricity retail rates by sector/state from EIA |
-| `intel_energy_prices` | Brent/WTI crude oil and natural gas from EIA |
-| `intel_fred_series` | FRED economic data (GDP, CPI, unemployment, rates) |
-| `intel_world_bank_indicators` | World Bank development indicators by country |
-
-### Central Banks (1)
-| Tool | Description |
-|------|-------------|
-| `intel_central_bank_rates` | Policy rates for 15 major central banks |
-
-### BTC Technicals (1)
-| Tool | Description |
-|------|-------------|
-| `intel_btc_technicals` | Bitcoin SMA 50/200, golden/death cross, Mayer Multiple |
-
-### Natural Disasters (2)
-| Tool | Description |
-|------|-------------|
-| `intel_earthquakes` | USGS earthquakes (configurable magnitude/time/limit) |
-| `intel_wildfires` | NASA FIRMS satellite fire hotspots (9 global regions) |
-
-### Environmental (2)
-| Tool | Description |
-|------|-------------|
-| `intel_environmental_events` | NASA EONET natural events |
-| `intel_disaster_alerts` | GDACS disaster alerts with severity scoring |
-
-### Conflict & Security (4)
-| Tool | Description |
-|------|-------------|
-| `intel_acled_events` | ACLED armed conflict events |
-| `intel_ucdp_events` | Uppsala Conflict Data Program events |
-| `intel_unrest_events` | Social unrest with Haversine dedup |
-| `intel_humanitarian_summary` | HDX humanitarian crisis datasets |
-
-### Military & Defense (6)
-| Tool | Description |
-|------|-------------|
-| `intel_military_flights` | Military aircraft via adsb.lol (OpenSky fallback) |
-| `intel_theater_posture` | Activity across 5 theaters (EU, Indo-Pacific, ME, Arctic, Korea) |
-| `intel_aircraft_details` | Aircraft lookup by ICAO24 hex (hexdb.io) |
-| `intel_aircraft_batch` | Batch aircraft lookup (multiple hex codes) |
-| `intel_military_surge` | Foreign aircraft concentration anomaly detection |
-| `intel_usni_fleet` | USNI News naval fleet tracker |
-
-### Infrastructure (4)
-| Tool | Description |
-|------|-------------|
-| `intel_internet_outages` | Cloudflare Radar internet disruptions |
-| `intel_cable_health` | Submarine cable corridor health |
-| `intel_cascade_analysis` | Infrastructure cascade simulation |
-| `intel_service_status` | Cloud platform health (AWS, Azure, GCP, Cloudflare, GitHub) |
-
-### Maritime (2)
-| Tool | Description |
-|------|-------------|
-| `intel_nav_warnings` | NGA maritime navigation warnings |
-| `intel_vessel_snapshot` | Naval activity at 9 strategic waterways |
-
-### Geospatial Datasets (10)
-| Tool | Description |
-|------|-------------|
-| `intel_military_bases` | 70 military bases from 9 operators |
-| `intel_strategic_ports` | 40 strategic ports across 6 types |
-| `intel_pipelines` | 24 oil/gas/hydrogen pipelines |
-| `intel_nuclear_facilities` | 24 nuclear power/enrichment/research facilities |
-| `intel_undersea_cables` | 34 submarine communications cables |
-| `intel_ai_datacenters` | 48 AI/HPC datacenters worldwide |
-| `intel_spaceports` | 27 global spaceports |
-| `intel_critical_minerals` | 27 strategic mineral deposits |
-| `intel_stock_exchanges` | 82 stock exchanges worldwide |
-| `intel_trade_routes` | Major trade routes and chokepoints |
-
-### News & Media (3)
-| Tool | Description |
-|------|-------------|
-| `intel_news_feed` | 119 global RSS feeds with 4-tier source ranking |
-| `intel_trending_keywords` | Trending terms with spike detection |
-| `intel_gdelt_search` | GDELT 2.0 global news search |
-
-### Intelligence Analysis (8)
-| Tool | Description |
-|------|-------------|
-| `intel_signal_convergence` | Geographic convergence of multi-domain signals |
-| `intel_focal_points` | Multi-signal focal point detection |
-| `intel_signal_summary` | Country-level signal aggregation |
-| `intel_temporal_anomalies` | Activity deviations from baselines |
-| `intel_instability_index` | Country Instability Index v2 (0-100) |
-| `intel_risk_scores` | ACLED-based conflict risk scoring |
-| `intel_hotspot_escalation` | Escalation scores for 22 intel hotspots |
-| `intel_country_dossier` | Comprehensive country intelligence dossier |
-
-### NLP Intelligence (4)
-| Tool | Description |
-|------|-------------|
-| `intel_extract_entities` | Named entity extraction (countries, leaders, orgs, CVEs, APTs) |
-| `intel_classify_event` | Event classification into 14 threat categories |
-| `intel_news_clusters` | Topic clustering by Jaccard similarity |
-| `intel_keyword_spikes` | Keyword spike detection with Welford's algorithm |
-
-### Strategic Synthesis (4)
-| Tool | Description |
-|------|-------------|
-| `intel_strategic_posture` | Composite global risk from 9 weighted domains |
-| `intel_world_brief` | Structured daily intelligence summary |
-| `intel_fleet_report` | Naval fleet activity report with readiness scoring |
-| `intel_population_exposure` | Population at risk near active events (105-city dataset) |
-
-### Climate (1)
-| Tool | Description |
-|------|-------------|
-| `intel_climate_anomalies` | Open-Meteo temperature/precipitation anomalies |
-
-### Prediction Markets (1)
-| Tool | Description |
-|------|-------------|
-| `intel_prediction_markets` | Polymarket prediction contracts |
-
-### Elections (1)
-| Tool | Description |
-|------|-------------|
-| `intel_election_calendar` | Global election calendar with risk scoring |
-
-### Displacement (1)
-| Tool | Description |
-|------|-------------|
-| `intel_displacement_summary` | UNHCR refugee/IDP statistics |
-
-### Aviation (2)
-| Tool | Description |
-|------|-------------|
-| `intel_airport_delays` | FAA airport delay status |
-| `intel_aviation_domestic` | Global air traffic snapshot from OpenSky |
-
-### Cyber Threats (1)
-| Tool | Description |
-|------|-------------|
-| `intel_cyber_threats` | Aggregated cyber intel (URLhaus, CISA KEV, SANS) |
-
-### Space Weather (1)
-| Tool | Description |
-|------|-------------|
-| `intel_space_weather` | Solar activity (Kp index, X-ray flux, SWPC alerts) |
-
-### AI & Technology (4)
-| Tool | Description |
-|------|-------------|
-| `intel_ai_releases` | arXiv AI papers, HuggingFace models |
-| `intel_hacker_news` | Hacker News top stories |
-| `intel_trending_repos` | GitHub trending repositories |
-| `intel_arxiv_papers` | arXiv paper search |
-
-### Health (1)
-| Tool | Description |
-|------|-------------|
-| `intel_disease_outbreaks` | WHO DON, ProMED, CIDRAP outbreaks |
-
-### Social & Sanctions (3)
-| Tool | Description |
-|------|-------------|
-| `intel_social_signals` | Reddit geopolitical discussion velocity |
-| `intel_sanctions_search` | OFAC SDN list search |
-| `intel_nuclear_monitor` | Seismic monitoring near nuclear test sites |
-
-### Shipping & Trade (1)
-| Tool | Description |
-|------|-------------|
-| `intel_shipping_index` | Dry bulk shipping stress index |
-
-### Government (1)
-| Tool | Description |
-|------|-------------|
-| `intel_usa_spending` | USAspending.gov federal contracts |
-
-### Country Intelligence (3)
-| Tool | Description |
-|------|-------------|
-| `intel_country_brief` | Quick country situation summary |
-| `intel_country_stocks` | Stock exchanges and listings by country |
-| `intel_financial_centers` | Global financial centers ranking |
-
-### Extended Geospatial (1)
-| Tool | Description |
-|------|-------------|
-| `intel_cloud_regions` | Cloud provider regions worldwide |
-
-### Traffic (2)
-| Tool | Description |
-|------|-------------|
-| `intel_traffic_flow` | Road traffic flow data |
-| `intel_traffic_incidents` | Real-time traffic incidents |
-
-### Cross-Domain Alerts (2)
-| Tool | Description |
-|------|-------------|
-| `intel_alert_digest` | Cross-domain alert aggregation |
-| `intel_weekly_trends` | Weekly trend analysis |
-
-### Monitoring (2)
-| Tool | Description |
-|------|-------------|
-| `intel_webcams` | Public webcam locations and live previews |
-| `intel_status` | Server health, cache stats, circuit breaker status |
-
-### Vector Search (5)
-| Tool | Description |
-|------|-------------|
-| `intel_semantic_search` | Natural language search across all accumulated intelligence |
-| `intel_similar_events` | Find events similar to a given data point |
-| `intel_timeline` | Chronological view of intelligence for a domain/category |
-| `intel_vector_stats` | Vector store collection statistics |
-| `intel_collect` | Trigger an on-demand collection cycle |
-
-### Cross-Domain Analytics (3)
-| Tool | Description |
-|------|-------------|
-| `intel_cross_correlate` | Find correlated signals across all domains for a given topic |
-| `intel_domain_summary` | Per-category summary of stored intelligence (counts, sources, recency) |
-| `intel_trend_detection` | Detect activity surges/drops by comparing recent vs baseline periods |
-
-### Reports (1)
-
-| Tool | Description |
-|------|-------------|
-| `intel_generate_report` | Generate a PDF or HTML intelligence report covering 18 domains in parallel |
-
-### AOI Geofences (5)
-| Tool | Description |
-|------|-------------|
-| `intel_aoi_define` | Define a named area of interest: point + radius in km (1-2000) |
-| `intel_aoi_list` | List all user-defined AOIs |
-| `intel_aoi_delete` | Delete a user-defined AOI by name |
-| `intel_aoi_brief` | Cited brief for an AOI: earthquakes, military flights, wildfires, conflict events, aviation, nearby infrastructure, and news mentions, all filtered to the AOI's radius |
-| `intel_aoi_escalation` | Hotspot escalation scoring (same engine as the 22 built-in hotspots) applied to a user AOI |
-
-### Situation Brief (1)
-| Tool | Description |
-|------|-------------|
-| `intel_situation_brief` | Cited situational awareness brief, generated on demand over MCP: a bounded server-side overview (earthquakes, military flights, ACLED conflict events, wildfires, cyber threats, disease outbreaks, news, space weather, strategic posture, alert digest), synthesized via local Ollama or a mechanically-cited fallback when Ollama is unreachable |
-
----
-
-## Watching your own area (geofences/AOIs)
-
-Static infrastructure results (bases, ports, nuclear, cables, datacenters, spaceports) draw on this repo's curated strategic datasets, which are global and deliberately sparse, not exhaustive local registries. A quiet AOI brief means nothing from those curated sets is in range, not that your area has no infrastructure.
-
-28 of the 120 tools take some geographic parameter, but before the AOI
-family only `intel_signal_convergence` accepted a real point-plus-radius,
-`intel_military_flights` took a bbox, and hotspot escalation scoring was
-restricted to the 22 hardcoded `INTEL_HOTSPOTS`. The `intel_aoi_*` tools
-let you name your own area (a city, a border region, a facility) and get
-the same cited, multi-domain treatment.
-
-Define an AOI once, then brief and score it on demand:
-
-```
-intel_aoi_define(name="Pittsburgh", lat=40.4406, lon=-79.9959, radius_km=50)
-intel_aoi_brief(name="Pittsburgh")
-intel_aoi_escalation(name="Pittsburgh")
-```
-
-`intel_aoi_brief` filters every geo-capable domain to the 50 km radius
-around Pittsburgh: earthquakes, military flights (bbox derived from the
-radius), wildfires (region-mapped, since NASA FIRMS has no point+radius
-query), ACLED conflict events, a sample of nearby aviation traffic,
-nearby static infrastructure (military bases, ports, pipelines, nuclear
-facilities, undersea cables, datacenters, spaceports) with distances in
-km, and news headline mentions of "Pittsburgh". Every item in the
-response carries a `[n]` citation into a numbered `sources` list, and
-`data_gaps` names any domain that couldn't be scoped to the AOI (for
-example, wildfires when the AOI falls outside NASA FIRMS's coverage
-regions, or conflict events when ACLED credentials aren't configured)
-instead of silently omitting it.
-
-`intel_aoi_escalation` runs the same baseline/military/conflict/social-
-unrest scoring engine that powers `intel_hotspot_escalation` for the 22
-built-in hotspots, but scoped to your AOI's own radius instead of a fixed
-2-degree window.
-
-AOIs persist in a dedicated table inside the same SQLite cache database
-the server already uses (`~/.cache/world-intel-mcp/cache.db` by default,
-or `$WORLD_INTEL_CACHE_DB`), so a scheduled agent can watch any named
-area across restarts with `intel_aoi_list` / `intel_aoi_delete` to manage
-them.
-
----
-
-## Vector Store
-
-The optional Qdrant vector store accumulates intelligence over time for semantic retrieval. All data fetched through the Fetcher is automatically embedded and stored.
-
-### Setup
-
-```bash
-# Install Qdrant (Docker)
-docker run -p 6333:6333 qdrant/qdrant
-
-# Install vector dependencies
-pip install -e ".[vector]"
-
-# Run the collector daemon (populates vector store 24/7)
-intel-collector --daemon              # every 5 minutes
-intel-collector --daemon --interval 120  # every 2 minutes
-intel-collector --sources markets,cyber  # specific domains only
-intel-collector                        # single collection cycle
-```
-
-### Running as a macOS launchd Service
-
-`scripts/collector-daemon.sh` manages the collector as a `launchd` agent so it
-survives reboots. It fills in `com.agentic.intel-collector.plist.template`
-with this checkout's own path (resolved from the script's own location, so
-it works from any clone) and installs the result to
-`~/Library/LaunchAgents/`.
-
-```bash
-scripts/collector-daemon.sh start    # install + load the launchd job
-scripts/collector-daemon.sh status   # check state and log info
-scripts/collector-daemon.sh logs     # tail stdout (logs err for stderr)
-scripts/collector-daemon.sh stop     # unload the launchd job
-scripts/collector-daemon.sh restart
-scripts/collector-daemon.sh render   # print the filled-in plist without installing it
-```
-
-### Semantic Search Examples
-
-Once data accumulates, AI agents can query across all domains:
-
-- *"military activity near Taiwan strait"* — finds military flights, naval warnings, theater posture data
-- *"cyber threats targeting healthcare"* — finds URLhaus, CISA KEV entries related to healthcare
-- *"economic indicators suggesting recession"* — finds yield curve inversions, macro signals, FRED data
-
-The vector store uses FastEmbed (ONNX-based, BAAI/bge-small-en-v1.5) for embeddings — no GPU required, ~3 second cold start.
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ACLED_ACCESS_TOKEN` | No | ACLED conflict events |
-| `NASA_FIRMS_API_KEY` | No | Satellite wildfire data |
-| `EIA_API_KEY` | No | Energy price data |
-| `CLOUDFLARE_API_TOKEN` | No | Internet outage data |
-| `FRED_API_KEY` | No | Macro economic data (also used for yield curve) |
-| `OPENSKY_CLIENT_ID` | No | Military flight fallback |
-| `OPENSKY_CLIENT_SECRET` | No | Military flight fallback |
-| `OLLAMA_API_URL` | No | Ollama server for AI-generated briefs (default: `http://localhost:11434`) |
-| `OLLAMA_MODEL` | No | Ollama model for AI-generated briefs (default: `llama3.2`) |
-| `WORLD_INTEL_LOG_LEVEL` | No | Logging level (default: INFO) |
-
-Everything else uses free, unauthenticated public APIs.
-
----
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-pytest                       # 251 tests (269 total, 18 live-network smoke tests deselected by default)
-pytest --cov=world_intel_mcp # with coverage
-pytest tests/test_forex.py -v # single module
-```
-
-### Adding a New Source
-
-1. Create `sources/your_source.py` with `async def fetch_your_data(fetcher: Fetcher, **kwargs) -> dict`
-2. Use `fetcher.get_json(url, source="your-source", cache_key=..., cache_ttl=300)` — automatic caching, retries, circuit breaking, rate limiting
-3. In `server.py`: add `Tool(...)` to `TOOLS`, add `case` to `_dispatch()` (use inline import)
-4. Add tests using `respx` to mock HTTP (see `tests/test_forex.py` for pattern)
-5. Optionally add to `dashboard/app.py` (SSE) and `cli.py` (Click)
-
----
-
-## License
-
-MIT
+This project retains the license of the original World Intel MCP project.
